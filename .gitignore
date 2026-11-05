@@ -1,0 +1,14 @@
+# Environment and secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Local financial data — never commit real account or transaction data
+data/*
+!data/README.md
+.pytest_cache/

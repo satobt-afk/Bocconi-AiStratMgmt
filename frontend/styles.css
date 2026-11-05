@@ -1,0 +1,16 @@
+/* Minimal styling for the Personal Financial Agent project skeleton. */
+
+body {
+  font-family: system-ui, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  background-color: #f7f7f7;
+  color: #222;
+}
+
+main {
+  text-align: center;
+}
