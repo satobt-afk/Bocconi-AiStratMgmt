@@ -19,7 +19,7 @@ We believe exchange students make better spending decisions when they can see, a
 | 🏠 Monthly status: what is left, days left, over-budget alerts; months reset on the 1st, history kept | ✅ built |
 | 🤖 AI budget coach: answers questions like *"Can I afford a 150 € weekend?"* using tools on the student's real data | ✅ built |
 | 📸 Receipt scanning: a photo is read by a vision model (`qwen3-vl:2b-instruct`), checked by Python, then confirmed by the student | ✅ built |
-| 📊 Dashboards: spending by category, month evolution, month-by-month comparison over the year | 🔜 planned |
+| 📊 Dashboards: spending by category (donut), day-by-day spending vs ideal pace, month-by-month comparison over the year | ✅ built |
 | 💡 Proactive advice: alert when a category runs faster than usual, with a concrete saving tip | 🔜 planned |
 
 ## How the AI is used (and kept honest)

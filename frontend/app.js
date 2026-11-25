@@ -50,10 +50,13 @@ function monthName(month) {
 }
 
 async function renderHome() {
-  const [status, expenses] = await Promise.all([
+  const [status, expenses, daily] = await Promise.all([
     api(`/api/status?month=${currentMonth}`),
     api(`/api/expenses?month=${currentMonth}`),
+    api(`/api/daily?month=${currentMonth}`),
   ]);
+  drawDonut(status);
+  drawPace(daily);
 
   $("month-label").textContent = monthName(currentMonth);
   $("subtitle").textContent =
@@ -387,6 +390,124 @@ $("suggestions").addEventListener("click", (event) => {
   if (event.target.matches(".chip")) askCoach(event.target.textContent);
 });
 
+// ---------- Charts (plain SVG: no library, works offline) ----------
+// The numbers come from the API; the browser only draws them.
+
+function drawDonut(status) {
+  const slices = Object.entries(status.categories).filter(([, c]) => c.spent > 0);
+  if (!slices.length) {
+    $("donut").innerHTML = "";
+    $("donut-legend").innerHTML = `<li class="empty">No spending yet this month.</li>`;
+    return;
+  }
+  const r = 46, circumference = 2 * Math.PI * r;
+  let offset = 0;
+  const arcs = slices.map(([name, c]) => {
+    const length = (c.spent / status.spent) * circumference;
+    const arc = `<circle cx="60" cy="60" r="${r}" fill="none" stroke="${CATEGORY_STYLE[name].color}" stroke-width="18"
+      stroke-dasharray="${length} ${circumference - length}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)"/>`;
+    offset += length;
+    return arc;
+  });
+  $("donut").innerHTML = `<svg viewBox="0 0 120 120" role="img" aria-label="Spending by category">
+    ${arcs.join("")}
+    <text x="60" y="57" text-anchor="middle" font-size="16" font-weight="700" fill="currentColor">${euro(Math.round(status.spent))}</text>
+    <text x="60" y="73" text-anchor="middle" font-size="9" fill="#6b6a65">spent</text></svg>`;
+  $("donut-legend").innerHTML = slices
+    .sort(([, a], [, b]) => b.spent - a.spent)
+    .map(([name, c]) => {
+      const s = CATEGORY_STYLE[name];
+      const pct = Math.round((c.spent / status.spent) * 100);
+      return `<li><span class="dot" style="background:${s.color}"></span><span class="name">${s.emoji} ${s.label}</span><span class="pct">${pct}%</span></li>`;
+    })
+    .join("");
+}
+
+function drawPace(daily) {
+  const W = 320, H = 170, left = 34, right = 8, top = 10, bottom = 22;
+  const days = daily.days;
+  const max = Math.max(1, daily.total_budget, ...days.map((d) => d.cumulative || 0));
+  const x = (i) => left + (i / (days.length - 1)) * (W - left - right);
+  const y = (v) => top + (1 - v / max) * (H - top - bottom);
+  const line = (key) => days.filter((d) => d[key] !== null).map((d, i) => `${x(i).toFixed(1)},${y(d[key]).toFixed(1)}`).join(" ");
+
+  const known = days.filter((d) => d.cumulative !== null);
+  const last = known[known.length - 1];
+  const lastIndex = known.length - 1;
+  const ticks = [0, Math.round(max / 2), Math.round(max)];
+  $("pace-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending day by day against the ideal pace">
+    ${ticks.map((t) => `<line x1="${left}" x2="${W - right}" y1="${y(t)}" y2="${y(t)}" stroke="#ebe8e1"/>
+      <text x="${left - 4}" y="${y(t) + 3}" text-anchor="end" font-size="9" fill="#6b6a65">${t}€</text>`).join("")}
+    <text x="${left}" y="${H - 6}" font-size="9" fill="#6b6a65">1</text>
+    <text x="${W - right}" y="${H - 6}" text-anchor="end" font-size="9" fill="#6b6a65">${days.length}</text>
+    <polyline points="${line("ideal")}" fill="none" stroke="#7f77dd" stroke-width="2" stroke-dasharray="5 4"/>
+    ${known.length ? `<polyline points="${line("cumulative")}" fill="none" stroke="#d4537e" stroke-width="3" stroke-linejoin="round"/>
+      <circle cx="${x(lastIndex)}" cy="${y(last.cumulative)}" r="4.5" fill="#d4537e"/>` : ""}
+  </svg>`;
+
+  if (!last) {
+    $("pace-caption").innerHTML = `<span style="color:#7f77dd">- - ideal pace</span>. This month has not started yet.`;
+    return;
+  }
+  const gap = Math.round(last.cumulative - last.ideal);
+  const status = gap > 0
+    ? `You are <b>${euro(gap)} above</b> the ideal pace 🐢 slow down a little.`
+    : `You are <b>${euro(-gap)} below</b> the ideal pace 🎉 well done.`;
+  $("pace-caption").innerHTML =
+    `<span style="color:#d4537e">━ you</span> · <span style="color:#7f77dd">- - ideal pace</span> (rent on day 1, the rest spread evenly).<br>${status}`;
+}
+
+// ---------- Year ----------
+
+let currentYear = new Date().getFullYear();
+
+async function renderYear() {
+  const data = await api(`/api/year?year=${currentYear}`);
+  $("year-label").textContent = data.year;
+  const months = data.months;
+  const active = months.filter((m) => m.spent > 0);
+  const total = active.reduce((sum, m) => sum + m.spent, 0);
+  $("year-total").textContent = euro(Math.round(total));
+  $("year-average").textContent = active.length ? euro(Math.round(total / active.length)) : "–";
+  $("year-over").textContent = months.filter((m) => m.budget > 0 && m.spent > m.budget).length;
+
+  const W = 320, H = 180, left = 4, right = 4, top = 16, bottom = 20;
+  const max = Math.max(1, ...months.map((m) => Math.max(m.spent, m.budget)));
+  const slot = (W - left - right) / 12;
+  const y = (v) => top + (1 - v / max) * (H - top - bottom);
+  const bars = months.map((m, i) => {
+    const bx = left + i * slot + slot * 0.18, bw = slot * 0.64;
+    const color = m.spent === 0 ? "#ebe8e1" : m.budget > 0 && m.spent > m.budget ? "#c0392b" : "#7f77dd";
+    const by = y(m.spent);
+    const label = new Date(data.year, i, 1).toLocaleDateString("en-GB", { month: "short" }).slice(0, 1);
+    return `<g class="bar-hit" data-month="${m.month}">
+      <rect x="${left + i * slot}" y="${top}" width="${slot}" height="${H - top - bottom}" fill="transparent"/>
+      <rect x="${bx}" y="${m.spent ? by : H - bottom - 2}" width="${bw}" height="${m.spent ? H - bottom - by : 2}" rx="3" fill="${color}"/>
+      ${m.spent ? `<text x="${bx + bw / 2}" y="${by - 4}" text-anchor="middle" font-size="8" fill="#6b6a65">${Math.round(m.spent)}</text>` : ""}
+      <text x="${bx + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#6b6a65">${label}</text></g>`;
+  });
+  const budget = months[0].budget;
+  $("year-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending month by month">
+    ${bars.join("")}
+    ${budget > 0 ? `<line x1="${left}" x2="${W - right}" y1="${y(budget)}" y2="${y(budget)}" stroke="#2c2c2a" stroke-dasharray="4 4" opacity="0.6"/>` : ""}
+  </svg>`;
+}
+
+$("year-chart").addEventListener("click", (event) => {
+  const bar = event.target.closest("[data-month]");
+  if (!bar) return;
+  currentMonth = bar.dataset.month;
+  showView("home");
+});
+$("prev-year").addEventListener("click", () => {
+  currentYear -= 1;
+  renderYear();
+});
+$("next-year").addEventListener("click", () => {
+  currentYear += 1;
+  renderYear();
+});
+
 // ---------- Navigation and toast ----------
 
 function showView(name) {
@@ -395,6 +516,7 @@ function showView(name) {
   window.scrollTo(0, 0);
   if (name === "home") renderHome().catch((err) => showToast(err.message));
   if (name === "budgets") renderBudgets().catch((err) => showToast(err.message));
+  if (name === "year") renderYear().catch((err) => showToast(err.message));
 }
 
 document.querySelector(".tabbar").addEventListener("click", (event) => {

@@ -19,9 +19,12 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 - **2026-11-25 — Receipt scanning = vision model + Python validation + human confirmation.** Model: `qwen3-vl:2b-instruct` (1.9 GB, chosen for the 8 GB Mac). Ollama's structured output (`format` = JSON schema) forces the answer's shape. Python then fixes or flags the predictable errors: European dates (`23-11-2026`), `19,60`, future or very old dates, unknown categories. The form is pre-filled and saved only when the student taps Save (`source = "receipt"`).
 - **2026-11-25 — Photos are redrawn on a white background in the browser** (max 1280 px, JPEG) before upload. In testing, a transparent PNG looked "entirely black" to the model, and it invented a whole receipt. Photos are not stored.
 
+- **2026-11-25 — Charts are plain SVG drawn in the browser, with no chart library.** They work offline (the demo room may have no internet) and add no dependency. Python computes the data (`/api/daily`, `/api/year`); the browser only draws it.
+- **2026-11-25 — "Ideal pace" = rent due on day 1, the rest of the budget spread evenly over the month.** This is the same split as the forecast, so a rent payment on the 1st does not look like overspending.
+
 ## Temporary limitations
 
-- One budget per category, the same every month (no per-month override yet).
+- One budget per category, the same every month (no per-month override yet). Past months are compared with today's budgets: if you change a budget, the yearly chart changes too.
 - The yearly view uses the calendar year (Jan–Dec), not the exchange period.
 - Single user: no accounts or authentication.
 - AI coach: answers take ~7–12 s, and the first question after Ollama starts is slower (the model has to load). Italian answers are weaker (it once invented a "weekly" budget).
