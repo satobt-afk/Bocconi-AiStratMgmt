@@ -89,6 +89,102 @@ def get_budget_status(conn: sqlite3.Connection, month: str, today: Optional[date
     }
 
 
+def _fmt(cents: int) -> str:
+    """3460 -> "34.60 €", 25000 -> "250 €"."""
+    return f"{cents // 100} €" if cents % 100 == 0 else f"{cents / 100:.2f} €"
+
+
+# Paid once a month: not used to estimate the daily spending pace.
+FIXED_CATEGORIES = ("rent",)
+
+
+def forecast_month_end(conn: sqlite3.Connection, today: Optional[date] = None) -> dict:
+    """Project this month's total spending if the day-to-day pace so far continues.
+
+    Day-to-day spending (everything except fixed costs like rent) is averaged
+    over the days elapsed, today included, then extended to the days still to come.
+    """
+    today = today or date.today()
+    month = today.strftime("%Y-%m")
+    budgets = _budgets_cents(conn)
+    spent = _spent_cents_by_category(conn, month)
+
+    total_spent = sum(spent.values())
+    variable_spent = sum(c for cat, c in spent.items() if cat not in FIXED_CATEGORIES)
+    daily_cents = variable_spent / today.day
+    days_to_come = _days_left(month, today) - 1
+    expected_cents = round(daily_cents * days_to_come)
+    projected_cents = total_spent + expected_cents
+    total_budget = sum(budgets.values())
+
+    return {
+        "month": month,
+        "spent_so_far": to_euros(total_spent),
+        "daily_average": to_euros(round(daily_cents)),
+        "days_to_come": days_to_come,
+        "expected_additional_spending": to_euros(expected_cents),
+        "projected_total": to_euros(projected_cents),
+        "total_budget": to_euros(total_budget),
+        "projected_remaining": to_euros(total_budget - projected_cents),
+    }
+
+
+def can_afford(conn: sqlite3.Connection, amount: Amount, category: str, today: Optional[date] = None) -> dict:
+    """Decide whether a planned purchase fits this month's budget.
+
+    verdict: "no"    -> more than what is left this month
+             "tight" -> fits now, but breaks the category budget or the month-end forecast
+             "yes"   -> fits now and at month end
+    """
+    check_category(category)
+    cents = to_cents(amount)
+    if cents <= 0:
+        raise ValueError("Amount must be greater than 0")
+    today = today or date.today()
+    month = today.strftime("%Y-%m")
+
+    budgets = _budgets_cents(conn)
+    spent = _spent_cents_by_category(conn, month)
+    forecast = forecast_month_end(conn, today)
+    expected_cents = to_cents(forecast["expected_additional_spending"])
+
+    remaining_after = sum(budgets.values()) - sum(spent.values()) - cents
+    category_after = budgets.get(category, 0) - spent.get(category, 0) - cents
+    projected_after = remaining_after - expected_cents
+
+    if remaining_after < 0:
+        verdict = "no"
+        summary = f"No: it costs {_fmt(cents)} but only {_fmt(remaining_after + cents)} is left this month."
+    elif category_after < 0 or projected_after < 0:
+        verdict = "tight"
+        problems = []
+        if category_after < 0:
+            problems.append(f"it puts you over your {category} budget by {_fmt(-category_after)}")
+        if projected_after < 0:
+            problems.append(f"at your current pace you would end the month {_fmt(-projected_after)} over budget")
+        summary = (
+            f"Possible but tight: you would still have {_fmt(remaining_after)} left now, but "
+            + " and ".join(problems) + "."
+        )
+    else:
+        verdict = "yes"
+        summary = (
+            f"Yes, it fits: you would still have {_fmt(remaining_after)} left this month, "
+            f"about {_fmt(projected_after)} after your usual spending until month end."
+        )
+
+    return {
+        "amount": to_euros(cents),
+        "category": category,
+        "verdict": verdict,
+        "summary": summary,  # ready-made sentence: small models rephrase better than they reason
+        "remaining_after_purchase": to_euros(remaining_after),
+        "category_remaining_after_purchase": to_euros(category_after),
+        "expected_other_spending_until_month_end": to_euros(expected_cents),
+        "projected_remaining_after_purchase": to_euros(projected_after),
+    }
+
+
 def monthly_totals(conn: sqlite3.Connection, year: int) -> List[dict]:
     """Total spent and total budget for each of the 12 months of `year`."""
     rows = conn.execute(

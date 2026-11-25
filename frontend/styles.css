@@ -18,6 +18,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* hidden must win over display: flex */
 
 body {
   margin: 0;
@@ -147,3 +148,23 @@ input::placeholder { color: #c9c6bd; }
   background: var(--text); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px;
   white-space: nowrap; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis;
 }
+
+/* Coach chat */
+.coach-head { display: flex; align-items: center; gap: 12px; }
+.coach-head h2 { margin: 0; }
+.coach-logo { background: #e1f5ee; }
+.chat { display: flex; flex-direction: column; gap: 10px; margin: 16px 0 12px; }
+.msg { max-width: 85%; padding: 10px 13px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; }
+.msg.user { align-self: flex-end; background: var(--pink); color: #fff; border-radius: 18px 18px 4px 18px; }
+.msg.bot { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 18px 18px 18px 4px; }
+.msg.bot.error { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.msg.thinking { color: var(--muted); font-style: italic; }
+.tools { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 6px; }
+.tools span { font-size: 12px; background: #e1f5ee; color: #085041; border-radius: 999px; padding: 3px 10px; }
+.chat-form {
+  position: sticky; bottom: calc(78px + env(safe-area-inset-bottom));
+  display: flex; gap: 8px; margin-top: 12px; padding: 8px 0; background: var(--bg);
+}
+.chat-form input { flex: 1; border-radius: 999px; }
+.send { width: 44px; border: none; border-radius: 50%; background: var(--pink); color: #fff; font-size: 18px; cursor: pointer; }
+.send:disabled { opacity: 0.5; cursor: wait; }

@@ -6,14 +6,16 @@ below, which validate input and delegate to transactions.py / budgeting.py.
 
 from datetime import date
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend import budgeting, transactions
+from backend.agent import run_agent
+from backend.model_client import ModelUnavailable, get_model_client
 
 app = FastAPI(title="Personal Financial Agent")
 
@@ -30,6 +32,16 @@ def get_conn() -> Iterator:
         yield conn
     finally:
         conn.close()
+
+
+def get_model():
+    """The language model client; tests replace it with a scripted fake."""
+    return get_model_client()
+
+
+class ChatIn(BaseModel):
+    message: str
+    history: List[dict] = Field(default_factory=list)
 
 
 class ExpenseIn(BaseModel):
@@ -105,3 +117,18 @@ def update_budget(category: str, budget: BudgetIn, conn=Depends(get_conn)):
     except ValueError as error:
         raise _bad_input(error)
     return {"category": category, "budget": budgeting.get_budgets(conn)[category]}
+
+
+@app.post("/api/chat")
+def chat(body: ChatIn, conn=Depends(get_conn), model=Depends(get_model)):
+    """Ask the AI budget coach. The browser keeps the conversation and sends it back each time."""
+    message = body.message.strip()
+    if not message:
+        raise HTTPException(status_code=422, detail="Message is empty")
+    try:
+        return run_agent(conn, model, body.history, message)
+    except ModelUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="The AI coach is offline. Start the Ollama app on this computer and try again.",
+        )

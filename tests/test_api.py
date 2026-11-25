@@ -3,8 +3,19 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.main import app, get_conn
+from backend.main import app, get_conn, get_model
+from backend.model_client import ModelReply, ModelUnavailable
 from backend.transactions import connect
+
+
+class ScriptedModel:
+    def __init__(self, reply=None, error=None):
+        self.reply, self.error = reply, error
+
+    def chat(self, messages, tools):
+        if self.error:
+            raise self.error
+        return self.reply
 
 
 @pytest.fixture
@@ -13,6 +24,30 @@ def client():
     app.dependency_overrides[get_conn] = lambda: conn
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+def test_chat_returns_the_agent_reply(client):
+    app.dependency_overrides[get_model] = lambda: ScriptedModel(ModelReply("Ciao!"))
+
+    response = client.post("/api/chat", json={"message": "Hi", "history": []})
+
+    assert response.status_code == 200
+    assert response.json() == {"reply": "Ciao!", "tools_used": []}
+
+
+def test_chat_explains_when_the_model_is_offline(client):
+    app.dependency_overrides[get_model] = lambda: ScriptedModel(error=ModelUnavailable("down"))
+
+    response = client.post("/api/chat", json={"message": "Hi"})
+
+    assert response.status_code == 503
+    assert "Ollama" in response.json()["detail"]
+
+
+def test_chat_rejects_an_empty_message(client):
+    app.dependency_overrides[get_model] = lambda: ScriptedModel(ModelReply("unused"))
+
+    assert client.post("/api/chat", json={"message": "   "}).status_code == 422
 
 
 def test_categories_are_listed(client):
