@@ -32,6 +32,8 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 
 - **2026-11-25 — Opening an access link only shows a "Sign in" button; pressing it (POST) uses the link.** Found for real: the iPhone said "link no longer works" because Messages/Notes had fetched the link to build a preview, which used it up 27 s after it was created. Preview bots never press buttons.
 
+- **2026-11-25 — Deleting an expense (to fix a mistake).** `DELETE /api/expenses/{id}` runs `DELETE ... WHERE id = ? AND user_id = ?`. Another user's id gets the same 404 as a missing one, so changing the number in the URL reveals and deletes nothing (no IDOR). The Home list now shows all of the month's expenses, each with a 🗑 that asks for confirmation inside the row. Editing was left out on purpose: delete, then add again.
+
 ## Temporary limitations
 
 - One budget per category, the same every month (no per-month override yet). Past months are compared with today's budgets: if you change a budget, the yearly chart changes too.

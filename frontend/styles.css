@@ -219,3 +219,15 @@ body.locked .top, body.locked .view, body.locked .tabbar, body.locked .demo-bann
 .locked-page .muted { max-width: 300px; font-size: 15px; }
 .demo-btn { display: inline-block; margin-top: 12px; text-decoration: none; padding: 14px 22px; }
 .demo-banner { margin: -4px 0 12px; padding: 8px 12px; border-radius: 12px; background: #e1f5ee; color: #085041; font-size: 13px; text-align: center; }
+
+/* Delete an expense */
+.expense-list li { flex-wrap: wrap; }
+.del { border: none; background: none; font-size: 16px; padding: 4px; cursor: pointer; opacity: 0.55; }
+.del:hover { opacity: 1; }
+.confirm-del { flex-basis: 100%; display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--danger); }
+.confirm-del span { flex: 1; min-width: 0; }
+.confirm-yes, .confirm-no { border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.confirm-yes { border: none; background: var(--danger); color: #fff; font-weight: 600; }
+.confirm-no { border: 1px solid var(--line); background: #fff; color: var(--text); }
+.expense-list li.confirming { background: var(--danger-soft); }
+.expense-list li.confirming .del { visibility: hidden; }

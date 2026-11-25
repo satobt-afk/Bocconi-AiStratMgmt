@@ -27,6 +27,7 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
+  if (response.status === 204) return null; // success with no content (e.g. a deletion)
   const body = await response.json();
   if (response.status === 401) {
     showLocked(); // session missing or gone: back to the "private app" screen
@@ -98,8 +99,8 @@ async function renderHome() {
     ? entries.map(([name, c]) => categoryCard(name, c)).join("")
     : `<div class="card empty">No budget yet. Set one in 🎯 Budgets.</div>`;
 
-  // Latest expenses (newest first)
-  const latest = expenses.slice().reverse().slice(0, 8);
+  // All of the month's expenses, newest first (so any mistake can be found and deleted)
+  const latest = expenses.slice().reverse();
   $("expenses").innerHTML = latest.length
     ? latest.map(expenseRow).join("")
     : `<li class="empty">No expenses this month yet. Tap ➕ to add one.</li>`;
@@ -132,8 +133,35 @@ function expenseRow(e) {
       <div class="bubble" style="background:${s.soft}">${s.emoji}</div>
       <div class="what">${merchant}${tag}<small>${day} · ${s.label}</small></div>
       <div class="amt">−${euro(e.amount)}</div>
+      <button type="button" class="del" data-ask-delete aria-label="Delete this expense">🗑</button>
+      <div class="confirm-del" hidden>
+        <span>Delete −${euro(e.amount)} · ${merchant}?</span>
+        <button type="button" class="confirm-yes" data-delete="${e.id}">Delete</button>
+        <button type="button" class="confirm-no" data-cancel-delete>Cancel</button>
+      </div>
     </li>`;
 }
+
+// Delete an expense (to fix a mistake): ask first, inside the row, then delete and refresh.
+$("expenses").addEventListener("click", async (event) => {
+  const row = event.target.closest("li");
+  if (!row) return;
+  if (event.target.closest("[data-ask-delete]")) {
+    row.classList.add("confirming");
+    row.querySelector(".confirm-del").hidden = false;
+  } else if (event.target.closest("[data-cancel-delete]")) {
+    row.classList.remove("confirming");
+    row.querySelector(".confirm-del").hidden = true;
+  } else if (event.target.closest("[data-delete]")) {
+    try {
+      await api(`/api/expenses/${event.target.closest("[data-delete]").dataset.delete}`, { method: "DELETE" });
+      showToast("🗑 Expense deleted");
+    } catch (err) {
+      showToast(err.message);
+    }
+    renderHome().catch((err) => showToast(err.message));
+  }
+});
 
 function escapeHtml(text) {
   const div = document.createElement("div");
