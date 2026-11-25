@@ -18,11 +18,11 @@ Start the server:
 Run tests:
 `python -m pytest`
 Open the page at `http://127.0.0.1:8000/`.
-Verify `http://127.0.0.1:8000/health` returns HTTP 200 and `{"ok": true}`.
+Verify `http://127.0.0.1:8000/health` returns HTTP 200 and `{"status": "ok"}`.
 One backend process must serve the page and API on the same port.
 
 # 3. Where things live
-`backend/` owns application logic; `backend/llm.py` is the only file allowed to call the model.
+`backend/` owns application logic; `backend/model_client.py` is the only file allowed to call the model.
 `frontend/` uses plain HTML, CSS, and JavaScript; do not introduce a frontend framework.
 `data/` holds retrieval material; use synthetic or explicitly approved, non-sensitive material.
 `tests/` is where every feature starts, with a test describing the expected behavior.
@@ -51,4 +51,5 @@ One backend process must serve the page and API on the same port.
 - Do not claim verification succeeded unless you actually performed it.
 
 # 6. Mistakes we have seen
-<!-- Empty today. Add one concise prevention rule after each observed mistake. -->
+<!-- Add one concise prevention rule after each observed mistake. -->
+- This file once named a missing `backend/llm.py` and a wrong `/health` response, and `python -m pytest` failed because test tools were missing from `requirements.txt`. When you rename a file, change an endpoint, or add a tool, update this file and `requirements.txt` in the same commit.
