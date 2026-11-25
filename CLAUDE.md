@@ -1,7 +1,7 @@
 # 1. What this is
-We believe students make better budgeting decisions when guidance uses complete, current financial data.
-Our users are students managing everyday spending and limited income.
-Done by 26 November means a working demo of budgeting guidance, daily connection checks, and feedback comparing the first month of use with the previous three months.
+For exchange students living on a fixed budget, we offer real-time spending control and personalized saving advice, using receipt scanning, auto-categorization, monthly/annual dashboards and an AI budget coach.
+We believe exchange students spend better when they always know where they stand against their monthly budget and can ask "can I afford this?" before buying.
+Done for the live demo means: add expenses (manually and by receipt photo with confirmation), per-category monthly budgets with history, dashboards, an AI coach that answers from the student's real data, and proactive saving alerts.
 
 # 2. How to run it
 Run these commands from the project root.
@@ -25,7 +25,7 @@ One backend process must serve the page and API on the same port.
 `backend/` owns application logic; `backend/model_client.py` is the only file allowed to call the model.
 `backend/agent.py` runs the AI coach: it defines the tools the model may call and the agent loop; tools only wrap tested functions from `budgeting.py` and `transactions.py`.
 `frontend/` uses plain HTML, CSS, and JavaScript; do not introduce a frontend framework.
-`data/` holds retrieval material; use synthetic or explicitly approved, non-sensitive material.
+`data/` holds the local SQLite database (`budget.db`), never committed; demo data must use `source="synthetic"`.
 `tests/` is where every feature starts, with a test describing the expected behavior.
 `.claude/` holds shared Claude configuration; keep personal preferences out.
 `NOTES.md` records decisions, temporary limitations, and changing project context.
@@ -36,7 +36,7 @@ One backend process must serve the page and API on the same port.
 - Make the smallest change that solves the requested task; touch only relevant files.
 - Write a test for the expected behavior first, confirm it fails for the expected reason, then implement.
 - Keep financial calculations deterministic in Python; use the model to explain results.
-- Treat disconnected accounts, missing accounts, and stale data as different limitations; never imply complete coverage without evidence.
+- Data is only what the student entered; never imply the app knows about spending it was not told about.
 - Label synthetic data clearly; never present a simulated connection or model response as real.
 - Before calling work complete, run relevant tests and concrete checks; report results and anything unverified.
 - Record consequential decisions and temporary workarounds in `NOTES.md`; keep future ideas in `BACKLOG.md`.
