@@ -169,6 +169,7 @@ $("expense-form").addEventListener("submit", async (event) => {
         category: selectedCategory,
         date: $("date").value,
         merchant: $("merchant").value.trim(),
+        source: expenseSource,
       }),
     });
   } catch (err) {
@@ -176,9 +177,10 @@ $("expense-form").addEventListener("submit", async (event) => {
   }
 
   const s = CATEGORY_STYLE[selectedCategory];
+  const icon = expenseSource === "receipt" ? "📸" : "✅";
   resetForm();
   currentMonth = todayISO().slice(0, 7);
-  showToast(`✅ ${euro(amount)} saved in ${s.emoji} ${s.label}`);
+  showToast(`${icon} ${euro(amount)} saved in ${s.emoji} ${s.label}`);
   showView("home");
 });
 
@@ -193,8 +195,82 @@ function resetForm() {
   $("expense-form").reset();
   $("date").value = todayISO();
   selectedCategory = null;
+  expenseSource = "manual";
+  $("scan-status").hidden = true;
   renderChips();
 }
+
+// ---------- Receipt scan (vision model + human confirmation) ----------
+
+let expenseSource = "manual"; // becomes "receipt" when the form was filled from a photo
+
+// Shrink the photo and draw it on white: smaller uploads, faster reading, and no
+// transparent background (a transparent PNG looked "entirely black" to the model).
+function photoToJpeg(file, maxSide = 1280) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => reject(new Error("This file is not a photo we can read."));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function showScanStatus(kind, html, thumbnail) {
+  const box = $("scan-status");
+  box.className = `scan-status ${kind}`;
+  box.innerHTML = (thumbnail ? `<img src="${thumbnail}" alt="Receipt photo" />` : "") + `<div>${html}</div>`;
+  box.hidden = false;
+}
+
+$("receipt-input").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  event.target.value = ""; // allow picking the same photo again
+  if (!file) return;
+
+  let photo;
+  try {
+    photo = await photoToJpeg(file);
+  } catch (err) {
+    return showScanStatus("error", escapeHtml(err.message));
+  }
+
+  const started = Date.now();
+  showScanStatus("reading", "🔍 Reading your receipt…", photo);
+  const timer = setInterval(() => {
+    showScanStatus("reading", `🔍 Reading your receipt… ${Math.round((Date.now() - started) / 1000)}s`, photo);
+  }, 1000);
+
+  try {
+    const p = await api("/api/receipts/scan", { method: "POST", body: JSON.stringify({ image: photo }) });
+    clearInterval(timer);
+    // Pre-fill the form: nothing is saved until the student taps "Save".
+    $("amount").value = p.amount ?? "";
+    $("date").value = p.date;
+    $("merchant").value = p.merchant;
+    selectedCategory = p.category;
+    expenseSource = "receipt";
+    renderChips();
+    $("form-error").hidden = true;
+    const warnings = p.warnings.length
+      ? `<ul>${p.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`
+      : "";
+    showScanStatus("done", `✨ Read by AI. <b>Check the details below</b>, then save.${warnings}`, photo);
+  } catch (err) {
+    clearInterval(timer);
+    showScanStatus("error", escapeHtml(err.message), photo);
+  }
+});
 
 // ---------- Budgets ----------
 

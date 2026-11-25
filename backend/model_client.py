@@ -10,7 +10,8 @@ own HTTP format, so switching provider never touches the agent code.
 
 Configuration comes from environment variables (see .env.example):
     MODEL_PROVIDER  "ollama" (default)
-    OLLAMA_MODEL    default "qwen2.5:3b"
+    OLLAMA_MODEL    default "qwen2.5:3b" (text + tools)
+    OLLAMA_VISION_MODEL default "qwen3-vl:2b-instruct" (receipt photos)
     OLLAMA_URL      default "http://localhost:11434"
 """
 
@@ -56,8 +57,10 @@ class OllamaClient:
         url: Optional[str] = None,
         timeout: float = 180,
         post: Callable[[str, dict, float], dict] = _http_post_json,
+        vision_model: Optional[str] = None,
     ):
         self.model = model or os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
+        self.vision_model = vision_model or os.environ.get("OLLAMA_VISION_MODEL", "qwen3-vl:2b-instruct")
         self.url = (url or os.environ.get("OLLAMA_URL", "http://localhost:11434")).rstrip("/")
         self.timeout = timeout
         self._post = post  # replaced by a fake in tests
@@ -88,6 +91,29 @@ class OllamaClient:
                     arguments = {}
             calls.append(ToolCall(id=f"call_{i}", name=function.get("name", ""), arguments=arguments))
         return ModelReply(content=(message.get("content") or "").strip(), tool_calls=calls)
+
+    def read_image(self, prompt: str, image_base64: str, schema: dict) -> dict:
+        """Ask the vision model about one image; the answer is forced into `schema` (JSON).
+
+        Returns the parsed JSON, or {} if the model's answer is not valid JSON.
+        """
+        payload = {
+            "model": self.vision_model,
+            "messages": [{"role": "user", "content": prompt, "images": [image_base64]}],
+            "format": schema,  # structured output: Ollama constrains the answer to this JSON shape
+            "stream": False,
+            "options": {"temperature": 0},
+            "keep_alive": "30m",
+        }
+        try:
+            data = self._post(f"{self.url}/api/chat", payload, self.timeout)
+        except (OSError, urllib.error.URLError, ValueError) as error:
+            raise ModelUnavailable(f"Cannot reach Ollama at {self.url}: {error}") from error
+        try:
+            parsed = json.loads((data.get("message") or {}).get("content") or "")
+        except ValueError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
 
     @staticmethod
     def _to_ollama(message: dict) -> dict:

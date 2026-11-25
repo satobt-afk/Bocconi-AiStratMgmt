@@ -16,6 +16,9 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 - **2026-11-25 — Forecast = day-to-day pace.** Non-rent spending is averaged over the days elapsed, then extended to the rest of the month.
 - **2026-11-25 — Conversation history lives in the browser** and is re-sent with each question (the last 10 messages). The backend stays stateless.
 
+- **2026-11-25 — Receipt scanning = vision model + Python validation + human confirmation.** Model: `qwen3-vl:2b-instruct` (1.9 GB, chosen for the 8 GB Mac). Ollama's structured output (`format` = JSON schema) forces the answer's shape. Python then fixes or flags the predictable errors: European dates (`23-11-2026`), `19,60`, future or very old dates, unknown categories. The form is pre-filled and saved only when the student taps Save (`source = "receipt"`).
+- **2026-11-25 — Photos are redrawn on a white background in the browser** (max 1280 px, JPEG) before upload. In testing, a transparent PNG looked "entirely black" to the model, and it invented a whole receipt. Photos are not stored.
+
 ## Temporary limitations
 
 - One budget per category, the same every month (no per-month override yet).
@@ -24,3 +27,4 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 - AI coach: answers take ~7–12 s, and the first question after Ollama starts is slower (the model has to load). Italian answers are weaker (it once invented a "weekly" budget).
 - AI coach is read-only: it cannot add expenses yet (planned with a confirmation step).
 - The chat is lost when the page reloads.
+- Receipt scanning was tested on clean, generated receipts only, not yet on real crumpled photos. The first scan after Ollama starts takes ~30 s to load the model, then ~3 s. On 8 GB of RAM, switching between the coach and the receipt reader can reload a model.

@@ -23,6 +23,7 @@ One backend process must serve the page and API on the same port.
 
 # 3. Where things live
 `backend/` owns application logic; `backend/model_client.py` is the only file allowed to call the model.
+`backend/receipt.py` turns a receipt photo into a proposed expense: the vision model reads it, Python validates every field, and nothing is saved until the student confirms.
 `backend/agent.py` runs the AI coach: it defines the tools the model may call and the agent loop; tools only wrap tested functions from `budgeting.py` and `transactions.py`.
 `frontend/` uses plain HTML, CSS, and JavaScript; do not introduce a frontend framework.
 `data/` holds the local SQLite database (`budget.db`), never committed; demo data must use `source="synthetic"`.

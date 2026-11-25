@@ -18,7 +18,7 @@ We believe exchange students make better spending decisions when they can see, a
 | 🎯 Monthly budget per category (rent, groceries, restaurant, transport, leisure, travel, other) | ✅ built |
 | 🏠 Monthly status: what is left, days left, over-budget alerts; months reset on the 1st, history kept | ✅ built |
 | 🤖 AI budget coach: answers questions like *"Can I afford a 150 € weekend?"* using tools on the student's real data | ✅ built |
-| 📸 Receipt scanning: a photo is read by a vision model, then confirmed by the student | 🔜 planned |
+| 📸 Receipt scanning: a photo is read by a vision model (`qwen3-vl:2b-instruct`), checked by Python, then confirmed by the student | ✅ built |
 | 📊 Dashboards: spending by category, month evolution, month-by-month comparison over the year | 🔜 planned |
 | 💡 Proactive advice: alert when a category runs faster than usual, with a concrete saving tip | 🔜 planned |
 
@@ -44,7 +44,7 @@ FastAPI (backend/main.py)
 ## How to run it
 See [CLAUDE.md §2](CLAUDE.md#2-how-to-run-it) for the exact commands. You also need:
 
-1. [Ollama](https://ollama.com/download) running, with the model downloaded: `ollama pull qwen2.5:3b`
+1. [Ollama](https://ollama.com/download) running, with the models downloaded: `ollama pull qwen2.5:3b` (coach) and `ollama pull qwen3-vl:2b-instruct` (receipts)
 2. Then open the app at `http://127.0.0.1:8000` → 🎯 set budgets → ➕ add expenses → 🤖 ask the coach.
 
 To open it on a phone on the same Wi-Fi, start the server with `--host 0.0.0.0` and open `http://<your-computer-ip>:8000`. This makes the app reachable by anyone on that network, so only do it on a network you trust.

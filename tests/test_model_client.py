@@ -74,6 +74,30 @@ def test_tool_results_are_sent_back_in_ollama_format():
     assert messages[2] == {"role": "tool", "tool_name": "get_budget_status", "content": '{"spent": 10}'}
 
 
+def test_read_image_sends_the_image_to_the_vision_model_with_a_schema():
+    sent = {}
+
+    def fake_post(url, payload, timeout):
+        sent["payload"] = payload
+        return {"message": {"role": "assistant", "content": '{"total": 19.6}'}}
+
+    client = OllamaClient(vision_model="qwen3-vl:2b-instruct", post=fake_post)
+    schema = {"type": "object", "properties": {"total": {"type": "number"}}}
+
+    result = client.read_image("Read it", "aW1hZ2U=", schema)
+
+    assert result == {"total": 19.6}
+    assert sent["payload"]["model"] == "qwen3-vl:2b-instruct"
+    assert sent["payload"]["format"] == schema
+    assert sent["payload"]["messages"][0]["images"] == ["aW1hZ2U="]
+
+
+def test_read_image_with_invalid_json_returns_empty_dict():
+    client = OllamaClient(post=lambda url, payload, timeout: {"message": {"content": "not json"}})
+
+    assert client.read_image("Read it", "aW1hZ2U=", {}) == {}
+
+
 def test_unreachable_server_raises_model_unavailable():
     client, _ = make_client(error=OSError("Connection refused"))
 

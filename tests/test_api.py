@@ -26,6 +26,61 @@ def client():
     app.dependency_overrides.clear()
 
 
+class ScriptedVision:
+    def __init__(self, answer=None, error=None):
+        self.answer, self.error = answer, error
+
+    def read_image(self, prompt, image_base64, schema):
+        if self.error:
+            raise self.error
+        return self.answer
+
+
+def test_receipt_scan_returns_a_proposal_and_saves_nothing(client):
+    app.dependency_overrides[get_model] = lambda: ScriptedVision(
+        {"merchant": "Esselunga", "date": "23-11-2026", "total": 19.6, "category": "groceries"}
+    )
+
+    response = client.post("/api/receipts/scan", json={"image": "data:image/jpeg;base64,aW1hZ2U="})
+
+    assert response.status_code == 200
+    assert response.json()["amount"] == 19.6
+    assert response.json()["date"] == "2026-11-23"
+    assert client.get("/api/expenses").json() == []  # the student must confirm first
+
+
+@pytest.mark.parametrize("image", ["", "not base64 !!!"])
+def test_receipt_scan_rejects_a_missing_or_broken_image(client, image):
+    app.dependency_overrides[get_model] = lambda: ScriptedVision({})
+
+    assert client.post("/api/receipts/scan", json={"image": image}).status_code == 422
+
+
+def test_receipt_scan_explains_when_the_model_is_offline(client):
+    app.dependency_overrides[get_model] = lambda: ScriptedVision(error=ModelUnavailable("down"))
+
+    response = client.post("/api/receipts/scan", json={"image": "aW1hZ2U="})
+
+    assert response.status_code == 503
+
+
+def test_confirmed_receipt_is_saved_with_source_receipt(client):
+    response = client.post(
+        "/api/expenses",
+        json={"amount": 19.6, "category": "groceries", "date": "2026-11-23", "merchant": "Esselunga", "source": "receipt"},
+    )
+
+    assert response.json()["source"] == "receipt"
+
+
+def test_api_cannot_create_synthetic_expenses(client):
+    response = client.post(
+        "/api/expenses", json={"amount": 5, "category": "other", "date": "2026-11-23", "source": "synthetic"}
+    )
+
+    assert response.status_code == 422
+
+
 def test_chat_returns_the_agent_reply(client):
     app.dependency_overrides[get_model] = lambda: ScriptedModel(ModelReply("Ciao!"))
 
