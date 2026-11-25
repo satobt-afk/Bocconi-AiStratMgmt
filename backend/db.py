@@ -13,7 +13,7 @@ an "owner" user (claimed later from the owner's browser).
 
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Union
 
@@ -172,3 +172,24 @@ def create_user(conn: sqlite3.Connection, user_id: Optional[str] = None, label: 
     with conn:
         conn.execute("INSERT INTO users (id, created_at, label) VALUES (?, ?, ?)", (user_id, _now(), label))
     return user_id
+
+
+GUEST_HOURS = 24  # demo sandboxes live this long
+
+
+def delete_expired_guests(conn: sqlite3.Connection, now: Optional[datetime] = None,
+                          hours: int = GUEST_HOURS) -> int:
+    """Delete demo sandboxes (label "guest") older than `hours`, with all their data.
+
+    Only "guest" users are ever deleted: real accounts (owner, or created with an
+    access link) are kept however old they are. Their expenses, budgets, sessions
+    and access links go too (ON DELETE CASCADE). Returns how many were deleted.
+    """
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=hours)
+    old = [row[0] for row in conn.execute("SELECT id, created_at FROM users WHERE label = 'guest'")
+           if datetime.fromisoformat(row[1]) < cutoff]
+    with conn:
+        conn.execute("PRAGMA foreign_keys = ON")  # needed for the cascade
+        conn.executemany("DELETE FROM users WHERE id = ? AND label = 'guest'", [(u,) for u in old])
+    return len(old)

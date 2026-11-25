@@ -34,7 +34,7 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 
 - One budget per category, the same every month (no per-month override yet). Past months are compared with today's budgets: if you change a budget, the yearly chart changes too.
 - The yearly view uses the calendar year (Jan–Dec), not the exchange period.
-- Demo sandboxes are not deleted automatically yet (step 5), and there are no per-user rate limits yet.
+- Rate limits live in memory (they reset when the server restarts) and are per user: coach 6/min for a guest and 20/min for a member, receipt scans 3/min and 10/min. Demo sandboxes are deleted 24 h after creation (checked whenever someone opens /demo); at most 20 new ones per hour and 50 alive at once.
 - AI coach: answers take ~7–12 s, and the first question after Ollama starts is slower (the model has to load). Italian answers are weaker (it once invented a "weekly" budget).
 - AI coach is read-only: it cannot add expenses yet (planned with a confirmation step).
 - The chat is lost when the page reloads.

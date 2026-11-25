@@ -7,7 +7,7 @@ below, which validate input and delegate to transactions.py / budgeting.py.
 import base64
 import binascii
 import os
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator, List, Literal, Optional
 
@@ -18,7 +18,8 @@ from pydantic import BaseModel, Field
 
 from backend import access, advice, budgeting, sessions, transactions
 from backend.agent import run_agent
-from backend.db import create_user
+from backend.db import GUEST_HOURS, create_user, delete_expired_guests
+from backend.limits import RateLimiter
 from backend.demo import seed_demo
 from backend.model_client import ModelUnavailable, get_model_client
 from backend.receipt import read_receipt
@@ -50,6 +51,34 @@ def current_user(request: Request, conn=Depends(get_conn)) -> str:
     if user is None:
         raise HTTPException(status_code=401, detail="This app is private: open your access link or the demo link.")
     return user
+
+
+# (max requests, per seconds) for the endpoints that use the Mac's AI. Guests (demo
+# visitors) get less than real accounts: the AI must stay usable for its owners.
+LIMITS = {
+    "chat": {"guest": (6, 60), "member": (20, 60)},
+    "scan": {"guest": (3, 60), "member": (10, 60)},
+}
+# New demo sandboxes: at most this many per hour, and alive at the same time.
+DEMO_CAPS = {"per_hour": 20, "active": 50}
+
+limiter = RateLimiter()
+
+
+def user_kind(conn, user_id: str) -> str:
+    """"guest" for a demo sandbox, "member" for a real account."""
+    row = conn.execute("SELECT label FROM users WHERE id = ?", (user_id,)).fetchone()
+    return "guest" if row and row[0] == "guest" else "member"
+
+
+def enforce_limit(action: str, conn, user_id: str) -> None:
+    """Refuse with 429 when this user has used `action` too often in the last minute."""
+    limit, window = LIMITS[action][user_kind(conn, user_id)]
+    if not limiter.allow(f"{user_id}:{action}", limit, window):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests: please wait a minute (max {limit} per minute).",
+        )
 
 
 def get_model():
@@ -152,6 +181,7 @@ def chat(body: ChatIn, conn=Depends(get_conn), user=Depends(current_user), model
     message = body.message.strip()
     if not message:
         raise HTTPException(status_code=422, detail="Message is empty")
+    enforce_limit("chat", conn, user)
     try:
         return run_agent(conn, user, model, body.history, message)
     except ModelUnavailable:
@@ -162,8 +192,10 @@ def chat(body: ChatIn, conn=Depends(get_conn), user=Depends(current_user), model
 
 
 @app.post("/api/receipts/scan")
-def scan_receipt(body: ReceiptIn, user=Depends(current_user), model=Depends(get_model)):  # signed-in users only
-    """Read a receipt photo and return a PROPOSED expense. Nothing is saved: the student confirms."""
+def scan_receipt(body: ReceiptIn, conn=Depends(get_conn), user=Depends(current_user), model=Depends(get_model)):
+    """Read a receipt photo and return a PROPOSED expense. Nothing is saved: the student confirms.
+    Signed-in users only, and rate-limited: it uses the Mac's AI."""
+    enforce_limit("scan", conn, user)
     image = body.image.split(",", 1)[1] if body.image.startswith("data:") else body.image
     try:
         raw = base64.b64decode(image, validate=True)
@@ -209,7 +241,6 @@ def tips(conn=Depends(get_conn), user=Depends(current_user)):
 
 # ---------- Ways in: personal access links and the demo mode ----------
 
-GUEST_HOURS = 24  # demo sandboxes are temporary
 
 
 def demo_enabled() -> bool:
@@ -232,6 +263,11 @@ LINK_PROBLEM_PAGE = """<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8
 <p class="muted">Access links work once and only for 15 minutes. Ask for a new one.</p></div></body></html>"""
 
 
+DEMO_FULL_PAGE = LINK_PROBLEM_PAGE.replace("Link not valid", "Demo busy").replace(
+    "This link no longer works", "The demo is busy").replace(
+    "Access links work once and only for 15 minutes. Ask for a new one.", "Too many demo visitors right now. Try again later.")
+
+
 @app.get("/join/{token}")
 def join(token: str, conn=Depends(get_conn)):
     """Personal access link: one use, 15 minutes. Signs this browser in to the link's account."""
@@ -246,6 +282,11 @@ def demo(conn=Depends(get_conn)):
     """Demo mode (only with DEMO_MODE=on): a new private sandbox, pre-filled with the demo story."""
     if not demo_enabled():
         raise HTTPException(status_code=404)
+    delete_expired_guests(conn)  # sandboxes older than 24 h go before a new one is made
+    created = [r[0] for r in conn.execute("SELECT created_at FROM users WHERE label = 'guest'")]
+    hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(timespec="seconds")  # same format as created_at
+    if len(created) >= DEMO_CAPS["active"] or sum(c > hour_ago for c in created) >= DEMO_CAPS["per_hour"]:
+        return HTMLResponse(DEMO_FULL_PAGE, status_code=429)
     guest = create_user(conn, label="guest")
     seed_demo(conn, guest)
     return _signed_in(RedirectResponse("/", status_code=303), conn, guest, max_age=GUEST_HOURS * 3600)
@@ -255,8 +296,5 @@ def demo(conn=Depends(get_conn)):
 def me(request: Request, conn=Depends(get_conn)):
     """Public: lets the page decide between the app and the "private app" screen. Reveals no data."""
     user = sessions.user_for_token(conn, request.cookies.get(sessions.COOKIE_NAME))
-    kind = None
-    if user:
-        label = conn.execute("SELECT label FROM users WHERE id = ?", (user,)).fetchone()[0]
-        kind = "guest" if label == "guest" else "member"
+    kind = user_kind(conn, user) if user else None
     return {"signed_in": user is not None, "kind": kind, "demo_available": demo_enabled()}
