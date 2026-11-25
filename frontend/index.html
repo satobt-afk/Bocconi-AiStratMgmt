@@ -48,6 +48,12 @@
     <!-- ADD: manual expense -->
     <section id="view-add" class="view" hidden>
       <h2>New expense</h2>
+      <!-- A file input opens the camera on phones and works over plain http (no camera permission API). -->
+      <label class="scan-btn">
+        📸 Scan a receipt
+        <input id="receipt-input" type="file" accept="image/*" capture="environment" hidden />
+      </label>
+      <div id="scan-status" class="scan-status" hidden></div>
       <form id="expense-form" class="card stack" novalidate>
         <label class="amount-field">
           <span>Amount</span>
