@@ -48,30 +48,34 @@ def _shift(year: int, month: int, delta: int):
     return index // 12, index % 12 + 1
 
 
-def _spent_by_day(conn: sqlite3.Connection, year: int, month: int, day: int) -> Dict[str, int]:
-    """Cents spent per category from the 1st to `day` (clamped to the month length)."""
+def _spent_by_day(conn: sqlite3.Connection, user_id: str, year: int, month: int, day: int) -> Dict[str, int]:
+    """Cents the user spent per category from the 1st to `day` (clamped to the month length)."""
     last = min(day, calendar.monthrange(year, month)[1])
     rows = conn.execute(
-        "SELECT category, SUM(amount_cents) AS total FROM expenses WHERE date BETWEEN ? AND ? GROUP BY category",
-        (date(year, month, 1).isoformat(), date(year, month, last).isoformat()),
+        "SELECT category, SUM(amount_cents) AS total FROM expenses "
+        "WHERE user_id = ? AND date BETWEEN ? AND ? GROUP BY category",
+        (user_id, date(year, month, 1).isoformat(), date(year, month, last).isoformat()),
     )
     return {r["category"]: r["total"] for r in rows}
 
 
-def _counts_by_day(conn: sqlite3.Connection, year: int, month: int, day: int) -> Dict[str, int]:
-    """Number of expenses per category from the 1st to `day`."""
+def _counts_by_day(conn: sqlite3.Connection, user_id: str, year: int, month: int, day: int) -> Dict[str, int]:
+    """Number of the user's expenses per category from the 1st to `day`."""
     last = min(day, calendar.monthrange(year, month)[1])
     rows = conn.execute(
-        "SELECT category, COUNT(*) AS n FROM expenses WHERE date BETWEEN ? AND ? GROUP BY category",
-        (date(year, month, 1).isoformat(), date(year, month, last).isoformat()),
+        "SELECT category, COUNT(*) AS n FROM expenses "
+        "WHERE user_id = ? AND date BETWEEN ? AND ? GROUP BY category",
+        (user_id, date(year, month, 1).isoformat(), date(year, month, last).isoformat()),
     )
     return {r["category"]: r["n"] for r in rows}
 
 
-def _month_expenses(conn: sqlite3.Connection, category: str, prefix: str, today: date) -> List[sqlite3.Row]:
+def _month_expenses(conn: sqlite3.Connection, user_id: str, category: str, prefix: str,
+                    today: date) -> List[sqlite3.Row]:
     return conn.execute(
-        "SELECT date, amount_cents, merchant FROM expenses WHERE category = ? AND substr(date, 1, 7) = ? AND date <= ?",
-        (category, prefix, today.isoformat()),
+        "SELECT date, amount_cents, merchant FROM expenses "
+        "WHERE user_id = ? AND category = ? AND substr(date, 1, 7) = ? AND date <= ?",
+        (user_id, category, prefix, today.isoformat()),
     ).fetchall()
 
 
@@ -130,21 +134,24 @@ def _explain(category: str, rows: List[sqlite3.Row], usual_count: Optional[float
     return None, None, None
 
 
-def _active(conn: sqlite3.Connection, year: int, month: int) -> bool:
+def _active(conn: sqlite3.Connection, user_id: str, year: int, month: int) -> bool:
     prefix = f"{year:04d}-{month:02d}"
-    return conn.execute("SELECT 1 FROM expenses WHERE substr(date, 1, 7) = ? LIMIT 1", (prefix,)).fetchone() is not None
-
-
-def _average_ticket(conn: sqlite3.Connection, category: str, month_prefix: str) -> int:
     row = conn.execute(
-        "SELECT AVG(amount_cents) AS avg FROM expenses WHERE category = ? AND substr(date, 1, 7) = ?",
-        (category, month_prefix),
+        "SELECT 1 FROM expenses WHERE user_id = ? AND substr(date, 1, 7) = ? LIMIT 1", (user_id, prefix)
+    ).fetchone()
+    return row is not None
+
+
+def _average_ticket(conn: sqlite3.Connection, user_id: str, category: str, month_prefix: str) -> int:
+    row = conn.execute(
+        "SELECT AVG(amount_cents) AS avg FROM expenses WHERE user_id = ? AND category = ? AND substr(date, 1, 7) = ?",
+        (user_id, category, month_prefix),
     ).fetchone()
     return round(row["avg"] or 0)
 
 
-def saving_tips(conn: sqlite3.Connection, today: Optional[date] = None) -> List[dict]:
-    """Up to 3 tips for the current month, biggest overspending first."""
+def saving_tips(conn: sqlite3.Connection, user_id: str, today: Optional[date] = None) -> List[dict]:
+    """Up to 3 tips for the user's current month, biggest overspending first."""
     today = today or date.today()
     year, month, day = today.year, today.month, today.day
     days_in_month = calendar.monthrange(year, month)[1]
@@ -152,18 +159,18 @@ def saving_tips(conn: sqlite3.Connection, today: Optional[date] = None) -> List[
     reset = f"{calendar.month_abbr[reset_m]} 1"
     prefix = f"{year:04d}-{month:02d}"
 
-    budgets = _budgets_cents(conn)
-    now = _spent_by_day(conn, year, month, day)
+    budgets = _budgets_cents(conn, user_id)
+    now = _spent_by_day(conn, user_id, year, month, day)
     history_months = [
-        (y, m) for y, m in (_shift(year, month, -k) for k in range(1, HISTORY_MONTHS + 1)) if _active(conn, y, m)
+        (y, m) for y, m in (_shift(year, month, -k) for k in range(1, HISTORY_MONTHS + 1)) if _active(conn, user_id, y, m)
     ]
-    history = [_spent_by_day(conn, y, m, day) for y, m in history_months]
-    history_counts = [_counts_by_day(conn, y, m, day) for y, m in history_months]
+    history = [_spent_by_day(conn, user_id, y, m, day) for y, m in history_months]
+    history_counts = [_counts_by_day(conn, user_id, y, m, day) for y, m in history_months]
     # Categories the student actually used in those months: for the others, "usual = 0 €"
     # would be meaningless, so they are compared with their budget pace instead.
     used_before = set()
     for y, m in history_months:
-        used_before |= set(_spent_by_day(conn, y, m, 31))
+        used_before |= set(_spent_by_day(conn, user_id, y, m, 31))
 
     tips = []
     for category in CATEGORIES:
@@ -188,7 +195,7 @@ def saving_tips(conn: sqlite3.Connection, today: Optional[date] = None) -> List[
             continue
 
         label = LABELS[category]
-        avg = _average_ticket(conn, category, prefix)
+        avg = _average_ticket(conn, user_id, category, prefix)
         usual_text = (
             f"Usually {_fmt(usual)} by the {_ordinal(day)}." if based_on == "history"
             else f"Your budget pace is {_fmt(usual)} by the {_ordinal(day)}."
@@ -210,7 +217,7 @@ def saving_tips(conn: sqlite3.Connection, today: Optional[date] = None) -> List[
                 tip = f"Slow down on {label.lower()} until {reset}: you are {_fmt(ahead)} ahead of your {pace}."
 
         driver, insight, specific_tip = _explain(
-            category, _month_expenses(conn, category, prefix, today), usual_count, usual_avg, day, reset
+            category, _month_expenses(conn, user_id, category, prefix, today), usual_count, usual_avg, day, reset
         )
         if specific_tip:
             tip = specific_tip

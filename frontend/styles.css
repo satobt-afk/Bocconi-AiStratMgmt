@@ -210,3 +210,12 @@ input::placeholder { color: #c9c6bd; }
 .tip-action { color: var(--text); font-weight: 600; }
 .tip-ask { margin-top: 8px; border: 1px solid currentColor; background: #fff; color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
 .tip-insight { font-style: italic; }
+
+/* Private app screen and demo banner */
+body.locked .top, body.locked .view, body.locked .tabbar, body.locked .demo-banner { display: none !important; }
+.locked-page { min-height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; }
+.locked-page .logo { width: 72px; height: 72px; font-size: 36px; }
+.locked-page h1 { font-size: 24px; }
+.locked-page .muted { max-width: 300px; font-size: 15px; }
+.demo-btn { display: inline-block; margin-top: 12px; text-decoration: none; padding: 14px 22px; }
+.demo-banner { margin: -4px 0 12px; padding: 8px 12px; border-radius: 12px; background: #e1f5ee; color: #085041; font-size: 13px; text-align: center; }

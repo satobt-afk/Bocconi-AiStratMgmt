@@ -3,18 +3,19 @@
 import pytest
 
 from backend.transactions import add_expense, connect, list_expenses
+from tests.helpers import USER, new_db
 
 
 @pytest.fixture
 def conn():
     # ":memory:" = a throwaway database that lives only during the test.
-    return connect(":memory:")
+    return new_db()
 
 
 def test_added_expense_can_be_listed(conn):
-    add_expense(conn, 34.60, "groceries", "2026-11-23", merchant="Esselunga")
+    add_expense(conn, USER, 34.60, "groceries", "2026-11-23", merchant="Esselunga")
 
-    expenses = list_expenses(conn)
+    expenses = list_expenses(conn, USER)
 
     assert len(expenses) == 1
     assert expenses[0]["amount"] == 34.60
@@ -25,18 +26,18 @@ def test_added_expense_can_be_listed(conn):
 
 
 def test_list_can_be_filtered_by_month(conn):
-    add_expense(conn, 10, "transport", "2026-10-31")
-    add_expense(conn, 20, "transport", "2026-11-01")
+    add_expense(conn, USER, 10, "transport", "2026-10-31")
+    add_expense(conn, USER, 20, "transport", "2026-11-01")
 
-    november = list_expenses(conn, month="2026-11")
+    november = list_expenses(conn, USER, month="2026-11")
 
     assert [e["amount"] for e in november] == [20]
 
 
 def test_synthetic_expenses_are_labelled(conn):
-    add_expense(conn, 5, "other", "2026-11-02", source="synthetic")
+    add_expense(conn, USER, 5, "other", "2026-11-02", source="synthetic")
 
-    assert list_expenses(conn)[0]["source"] == "synthetic"
+    assert list_expenses(conn, USER)[0]["source"] == "synthetic"
 
 
 @pytest.mark.parametrize(
@@ -52,5 +53,5 @@ def test_synthetic_expenses_are_labelled(conn):
 )
 def test_invalid_expenses_are_rejected(conn, amount, category, date, source):
     with pytest.raises(ValueError):
-        add_expense(conn, amount, category, date, source=source)
-    assert list_expenses(conn) == []
+        add_expense(conn, USER, amount, category, date, source=source)
+    assert list_expenses(conn, USER) == []

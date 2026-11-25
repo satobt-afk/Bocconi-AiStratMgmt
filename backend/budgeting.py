@@ -14,35 +14,36 @@ from typing import Dict, List, Optional
 from backend.transactions import CATEGORIES, Amount, check_category, check_month, to_cents, to_euros
 
 
-def set_budget(conn: sqlite3.Connection, category: str, amount: Amount) -> None:
-    """Set the monthly limit for a category (applies to every month)."""
+def set_budget(conn: sqlite3.Connection, user_id: str, category: str, amount: Amount) -> None:
+    """Set the user's monthly limit for a category (applies to every month)."""
     check_category(category)
     cents = to_cents(amount)
     if cents < 0:
         raise ValueError("Budget cannot be negative")
     with conn:
         conn.execute(
-            "INSERT INTO budgets (category, limit_cents) VALUES (?, ?) "
-            "ON CONFLICT(category) DO UPDATE SET limit_cents = excluded.limit_cents",
-            (category, cents),
+            "INSERT INTO budgets (user_id, category, limit_cents) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id, category) DO UPDATE SET limit_cents = excluded.limit_cents",
+            (user_id, category, cents),
         )
 
 
-def get_budgets(conn: sqlite3.Connection) -> Dict[str, float]:
-    """Monthly limit of every category, 0 when none was set."""
-    budgets = _budgets_cents(conn)
+def get_budgets(conn: sqlite3.Connection, user_id: str) -> Dict[str, float]:
+    """The user's monthly limit for every category, 0 when none was set."""
+    budgets = _budgets_cents(conn, user_id)
     return {category: to_euros(budgets.get(category, 0)) for category in CATEGORIES}
 
 
-def _budgets_cents(conn: sqlite3.Connection) -> Dict[str, int]:
-    return {r["category"]: r["limit_cents"] for r in conn.execute("SELECT category, limit_cents FROM budgets")}
+def _budgets_cents(conn: sqlite3.Connection, user_id: str) -> Dict[str, int]:
+    rows = conn.execute("SELECT category, limit_cents FROM budgets WHERE user_id = ?", (user_id,))
+    return {r["category"]: r["limit_cents"] for r in rows}
 
 
-def _spent_cents_by_category(conn: sqlite3.Connection, month: str) -> Dict[str, int]:
+def _spent_cents_by_category(conn: sqlite3.Connection, user_id: str, month: str) -> Dict[str, int]:
     rows = conn.execute(
         "SELECT category, SUM(amount_cents) AS total FROM expenses "
-        "WHERE substr(date, 1, 7) = ? GROUP BY category",
-        (month,),
+        "WHERE user_id = ? AND substr(date, 1, 7) = ? GROUP BY category",
+        (user_id, month),
     )
     return {r["category"]: r["total"] for r in rows}
 
@@ -59,12 +60,12 @@ def _days_left(month: str, today: date) -> int:
     return (last - today).days + 1
 
 
-def get_budget_status(conn: sqlite3.Connection, month: str, today: Optional[date] = None) -> dict:
+def get_budget_status(conn: sqlite3.Connection, user_id: str, month: str, today: Optional[date] = None) -> dict:
     """Budget, spending and remaining amount for `month` (YYYY-MM), in total and per category."""
     check_month(month)
     today = today or date.today()
-    budgets = _budgets_cents(conn)
-    spent = _spent_cents_by_category(conn, month)
+    budgets = _budgets_cents(conn, user_id)
+    spent = _spent_cents_by_category(conn, user_id, month)
 
     categories = {}
     for category in CATEGORIES:
@@ -98,7 +99,7 @@ def _fmt(cents: int) -> str:
 FIXED_CATEGORIES = ("rent",)
 
 
-def forecast_month_end(conn: sqlite3.Connection, today: Optional[date] = None) -> dict:
+def forecast_month_end(conn: sqlite3.Connection, user_id: str, today: Optional[date] = None) -> dict:
     """Project this month's total spending if the day-to-day pace so far continues.
 
     Day-to-day spending (everything except fixed costs like rent) is averaged
@@ -106,8 +107,8 @@ def forecast_month_end(conn: sqlite3.Connection, today: Optional[date] = None) -
     """
     today = today or date.today()
     month = today.strftime("%Y-%m")
-    budgets = _budgets_cents(conn)
-    spent = _spent_cents_by_category(conn, month)
+    budgets = _budgets_cents(conn, user_id)
+    spent = _spent_cents_by_category(conn, user_id, month)
 
     total_spent = sum(spent.values())
     variable_spent = sum(c for cat, c in spent.items() if cat not in FIXED_CATEGORIES)
@@ -129,7 +130,8 @@ def forecast_month_end(conn: sqlite3.Connection, today: Optional[date] = None) -
     }
 
 
-def can_afford(conn: sqlite3.Connection, amount: Amount, category: str, today: Optional[date] = None) -> dict:
+def can_afford(conn: sqlite3.Connection, user_id: str, amount: Amount, category: str,
+               today: Optional[date] = None) -> dict:
     """Decide whether a planned purchase fits this month's budget.
 
     verdict: "no"    -> more than what is left this month
@@ -143,9 +145,9 @@ def can_afford(conn: sqlite3.Connection, amount: Amount, category: str, today: O
     today = today or date.today()
     month = today.strftime("%Y-%m")
 
-    budgets = _budgets_cents(conn)
-    spent = _spent_cents_by_category(conn, month)
-    forecast = forecast_month_end(conn, today)
+    budgets = _budgets_cents(conn, user_id)
+    spent = _spent_cents_by_category(conn, user_id, month)
+    forecast = forecast_month_end(conn, user_id, today)
     expected_cents = to_cents(forecast["expected_additional_spending"])
 
     remaining_after = sum(budgets.values()) - sum(spent.values()) - cents
@@ -185,7 +187,7 @@ def can_afford(conn: sqlite3.Connection, amount: Amount, category: str, today: O
     }
 
 
-def daily_spending(conn: sqlite3.Connection, month: str, today: Optional[date] = None) -> dict:
+def daily_spending(conn: sqlite3.Connection, user_id: str, month: str, today: Optional[date] = None) -> dict:
     """Day-by-day spending of `month`, its running total, and the ideal pace to compare with.
 
     Ideal pace: fixed costs (rent) are due from day 1, the rest of the budget is
@@ -196,12 +198,13 @@ def daily_spending(conn: sqlite3.Connection, month: str, today: Optional[date] =
     year, mon = int(month[:4]), int(month[5:7])
     days_in_month = calendar.monthrange(year, mon)[1]
 
-    budgets = _budgets_cents(conn)
+    budgets = _budgets_cents(conn, user_id)
     fixed = sum(c for cat, c in budgets.items() if cat in FIXED_CATEGORIES)
     variable = sum(c for cat, c in budgets.items() if cat not in FIXED_CATEGORIES)
     rows = conn.execute(
-        "SELECT date, SUM(amount_cents) AS total FROM expenses WHERE substr(date, 1, 7) = ? GROUP BY date",
-        (month,),
+        "SELECT date, SUM(amount_cents) AS total FROM expenses "
+        "WHERE user_id = ? AND substr(date, 1, 7) = ? GROUP BY date",
+        (user_id, month),
     )
     per_day = {r["date"]: r["total"] for r in rows}
 
@@ -219,15 +222,15 @@ def daily_spending(conn: sqlite3.Connection, month: str, today: Optional[date] =
     return {"month": month, "total_budget": to_euros(fixed + variable), "days": days}
 
 
-def monthly_totals(conn: sqlite3.Connection, year: int) -> List[dict]:
+def monthly_totals(conn: sqlite3.Connection, user_id: str, year: int) -> List[dict]:
     """Total spent and total budget for each of the 12 months of `year`."""
     rows = conn.execute(
         "SELECT substr(date, 1, 7) AS month, SUM(amount_cents) AS total FROM expenses "
-        "WHERE substr(date, 1, 4) = ? GROUP BY month",
-        (f"{year:04d}",),
+        "WHERE user_id = ? AND substr(date, 1, 4) = ? GROUP BY month",
+        (user_id, f"{year:04d}"),
     )
     spent = {r["month"]: r["total"] for r in rows}
-    total_budget = sum(_budgets_cents(conn).values())
+    total_budget = sum(_budgets_cents(conn, user_id).values())
     return [
         {"month": m, "spent": to_euros(spent.get(m, 0)), "budget": to_euros(total_budget)}
         for m in (f"{year:04d}-{mon:02d}" for mon in range(1, 13))

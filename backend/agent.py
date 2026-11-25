@@ -95,16 +95,21 @@ TOOLS = [
 ]
 
 
-def _tool_functions(conn: sqlite3.Connection, today: date) -> Dict[str, Callable[..., dict]]:
+def _tool_functions(conn: sqlite3.Connection, user_id: str, today: date) -> Dict[str, Callable[..., dict]]:
+    """The coach's tools, bound by the SERVER to the user who is asking.
+
+    user_id is captured here and is not a tool parameter: the model cannot pass or
+    change it. Extra arguments it invents (e.g. user_id="someone") make the call fail.
+    """
     month = today.strftime("%Y-%m")
     return {
-        "get_budget_status": lambda: budgeting.get_budget_status(conn, month, today=today),
-        "forecast_month_end": lambda: budgeting.forecast_month_end(conn, today=today),
+        "get_budget_status": lambda: budgeting.get_budget_status(conn, user_id, month, today=today),
+        "forecast_month_end": lambda: budgeting.forecast_month_end(conn, user_id, today=today),
         "can_afford": lambda amount, category: budgeting.can_afford(
-            conn, float(amount), _normalize_category(category), today=today
+            conn, user_id, float(amount), _normalize_category(category), today=today
         ),
-        "get_recent_expenses": lambda: {"expenses": transactions.list_expenses(conn, month=month)[-10:]},
-        "get_saving_tips": lambda: {"tips": advice.saving_tips(conn, today=today)},
+        "get_recent_expenses": lambda: {"expenses": transactions.list_expenses(conn, user_id, month=month)[-10:]},
+        "get_saving_tips": lambda: {"tips": advice.saving_tips(conn, user_id, today=today)},
     }
 
 
@@ -120,20 +125,21 @@ def _run_tool(functions: Dict[str, Callable[..., dict]], name: str, arguments: d
 
 def run_agent(
     conn: sqlite3.Connection,
+    user_id: str,
     client,
     history: List[dict],
     user_message: str,
     today: Optional[date] = None,
     max_steps: int = 4,
 ) -> dict:
-    """Answer one student message.
+    """Answer one message from `user_id`, using only that user's data.
 
     Returns {"reply": str, "tools_used": [{"name", "arguments"}], "facts": [str]}.
     "facts" are Python's own summary sentences (from can_afford), shown word for
     word in the app so a badly rephrased reply cannot hide the real verdict.
     """
     today = today or date.today()
-    functions = _tool_functions(conn, today)
+    functions = _tool_functions(conn, user_id, today)
 
     past = [
         {"role": m["role"], "content": str(m.get("content", ""))}

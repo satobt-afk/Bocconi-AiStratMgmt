@@ -18,13 +18,16 @@ Start the server:
 Run tests:
 `python -m pytest`
 Open the page at `http://127.0.0.1:8000/`.
-Demo data (separate database, never `data/budget.db`): `python -m backend.demo`, then start the server with `BUDGET_DB=data/demo.db`. Load the models before a demo: `python -m backend.warmup`.
+The app is private: sign a browser in with a one-time access link, `python -m backend.access --owner` (or `--new NAME` for a new account).
+Demo mode: start the server with `DEMO_MODE=on`, then open `/demo` (each visitor gets their own pre-filled sandbox). Load the models before a demo: `python -m backend.warmup`.
 Verify `http://127.0.0.1:8000/health` returns HTTP 200 and `{"status": "ok"}`.
 One backend process must serve the page and API on the same port.
 
 # 3. Where things live
 `backend/` owns application logic; `backend/model_client.py` is the only file allowed to call the model.
 `backend/receipt.py` turns a receipt photo into a proposed expense: the vision model reads it, Python validates every field, and nothing is saved until the student confirms.
+`backend/sessions.py` and `backend/access.py` decide who is asking: the user comes only from the server-side session, never from the request; every data function takes a required `user_id`.
+`backend/db.py` owns the schema and numbered migrations (backup first, all or nothing).
 `backend/agent.py` runs the AI coach: it defines the tools the model may call and the agent loop; tools only wrap tested functions from `budgeting.py` and `transactions.py`.
 `frontend/` uses plain HTML, CSS, and JavaScript; do not introduce a frontend framework.
 `data/` holds the local SQLite database (`budget.db`), never committed; demo data must use `source="synthetic"`.
