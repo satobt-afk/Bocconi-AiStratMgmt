@@ -1,9 +1,5 @@
 # data/
 
-This folder is reserved for local, runtime data the application may
-produce or cache in the future (for example, locally stored account or
-transaction data used during development).
+This folder holds the app's local SQLite database, `budget.db`. The app creates it on first start, and it contains the expenses and budgets the student entered.
 
-Real financial data must never be committed to this repository. The
-`.gitignore` at the project root excludes everything in this folder
-except this README.
+Real financial data must never be committed to this repository. The `.gitignore` at the project root excludes everything in this folder except this README.

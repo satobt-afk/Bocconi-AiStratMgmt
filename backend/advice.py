@@ -1,4 +1,4 @@
-"""Placeholder for generating budgeting guidance from a student's
-budget and financial data. Future advice must account for missing or
-stale account data rather than assuming it is complete and current.
+"""Placeholder for proactive saving advice: detect a category spending
+faster than usual and suggest a concrete saving. Numbers must be computed
+here in Python; the model may only phrase them.
 """
