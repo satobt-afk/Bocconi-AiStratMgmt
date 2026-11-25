@@ -5,8 +5,8 @@ On the computer that runs the app:
     python -m backend.access --owner            # your account (the data from before multi-user)
     python -m backend.access --new "Grandpa"    # a new, empty account, e.g. for a relative
 
-It prints a link that works ONCE and only for 15 minutes. Opening it gives that
-browser a session for the account (it then stays signed in for a year). Lost the
+It prints a link that works ONCE and only for 15 minutes. Opening it shows a "Sign in"
+button; pressing it gives that browser a session for the account (it then stays signed in for a year). Lost the
 session (new phone, cleared Safari)? Run the command again for a fresh link.
 
 Like session tokens, only the SHA-256 of the link's secret is stored.
@@ -47,6 +47,16 @@ def create_access_link(conn: sqlite3.Connection, user_id: str, minutes: int = LI
             (_hash(token), user_id, _ts(now), _ts(now + timedelta(minutes=minutes))),
         )
     return token
+
+
+def link_is_usable(conn: sqlite3.Connection, token: str, now: Optional[datetime] = None) -> bool:
+    """Is this link unused and unexpired? Only looks: does not use it up."""
+    now = now or datetime.now(timezone.utc)
+    row = conn.execute(
+        "SELECT 1 FROM access_links WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?",
+        (_hash(token), _ts(now)),
+    ).fetchone()
+    return row is not None
 
 
 def redeem_access_link(conn: sqlite3.Connection, token: str, now: Optional[datetime] = None) -> Optional[str]:
