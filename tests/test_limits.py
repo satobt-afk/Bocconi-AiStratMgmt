@@ -85,7 +85,7 @@ def guest():
 def member(conn, user_id="me"):
     create_user(conn, user_id=user_id)
     browser = TestClient(app)
-    browser.get(f"/join/{create_access_link(conn, user_id)}")
+    browser.post(f"/join/{create_access_link(conn, user_id)}")
     return browser
 
 

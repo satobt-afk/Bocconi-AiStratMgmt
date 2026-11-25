@@ -288,9 +288,32 @@ DEMO_FULL_PAGE = LINK_PROBLEM_PAGE.replace("Link not valid", "Demo busy").replac
     "Access links work once and only for 15 minutes. Ask for a new one.", "Too many demo visitors right now. Try again later.")
 
 
+SIGN_IN_PAGE = """<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in</title>
+<link rel="stylesheet" href="/static/styles.css"></head><body><div class="app locked-page">
+<div class="logo">🐷</div><h1>Your budget coach</h1>
+<p class="muted">Tap the button to sign in on this device.</p>
+<form method="post" action="/join/{token}"><button type="submit" class="primary demo-btn">Sign in</button></form>
+</div></body></html>"""
+
+
 @app.get("/join/{token}")
+def join_page(token: str, conn=Depends(get_conn)):
+    """Opening an access link only SHOWS a "Sign in" button; it does not use the link up.
+
+    Messages, Notes, WhatsApp, Mail... fetch links to build previews: a link used up
+    on GET was consumed by the preview before the person could open it. Previews
+    never press buttons, so only the POST below signs in.
+    """
+    if not access.link_is_usable(conn, token):
+        return HTMLResponse(LINK_PROBLEM_PAGE, status_code=400)
+    # The token is URL-safe base64 (letters, digits, - and _): safe to put back in the form.
+    return HTMLResponse(SIGN_IN_PAGE.replace("{token}", token))
+
+
+@app.post("/join/{token}")
 def join(token: str, conn=Depends(get_conn)):
-    """Personal access link: one use, 15 minutes. Signs this browser in to the link's account."""
+    """The "Sign in" button: uses the link (once) and signs this browser in to its account."""
     user_id = access.redeem_access_link(conn, token)
     if user_id is None:
         return HTMLResponse(LINK_PROBLEM_PAGE, status_code=400)

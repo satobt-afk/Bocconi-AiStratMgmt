@@ -27,8 +27,10 @@ def conn(monkeypatch):
 
 
 def open_link(token):
+    """What a person does: open the link (GET shows a page), then tap "Sign in" (POST)."""
     browser = TestClient(app)
-    response = browser.get(f"/join/{token}", follow_redirects=False)
+    browser.get(f"/join/{token}")
+    response = browser.post(f"/join/{token}", follow_redirects=False)
     return browser, response
 
 
@@ -147,3 +149,31 @@ def test_opening_the_demo_again_keeps_the_same_sandbox(conn, monkeypatch):
     visitor.get("/demo")
 
     assert "MINE" in [e["merchant"] for e in visitor.get("/api/expenses").json()]
+
+
+
+def test_opening_the_link_does_not_use_it_up(conn):
+    # Found for real: Messages/Notes fetch a link to build a preview, which used up
+    # the one-time link before the iPhone opened it. Only the button press counts.
+    create_user(conn, user_id="me")
+    token = create_access_link(conn, "me")
+    preview_bot = TestClient(app)
+
+    first, second = preview_bot.get(f"/join/{token}"), preview_bot.get(f"/join/{token}")
+
+    assert first.status_code == second.status_code == 200
+    assert "Sign in" in first.text and 'method="post"' in first.text
+    assert "set-cookie" not in first.headers
+    assert preview_bot.get("/api/expenses").status_code == 401
+    browser, response = open_link(token)  # the real person still gets in
+    assert response.status_code == 303
+    assert browser.get("/api/expenses").status_code == 200
+
+
+def test_opening_a_used_or_made_up_link_says_so_right_away(conn):
+    create_user(conn, user_id="me")
+    token = create_access_link(conn, "me")
+    open_link(token)
+
+    assert TestClient(app).get(f"/join/{token}").status_code == 400
+    assert TestClient(app).get("/join/made-up").status_code == 400

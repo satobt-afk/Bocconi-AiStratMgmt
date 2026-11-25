@@ -30,6 +30,8 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 
 - **2026-11-25 — Multi-user, private by default.** Users are isolated in SQLite by a required `user_id`: in every data function and SQL query, and bound by the server to the coach's tools (the model cannot pick a user). The server identifies a browser only by its session cookie (32 random bytes, stored as SHA-256; HttpOnly, SameSite=Lax, Secure with `APP_ENV=production`). There is no open sign-up: real accounts get in with a one-time, 15-minute access link (`python -m backend.access`), and visitors get in only through `/demo` when `DEMO_MODE=on`, each in their own pre-filled sandbox. We chose this over an open guest mode because the real users are known (the student, a relative) and an open link would let strangers use the Mac's AI. The data from before multi-user was migrated to an "owner" account (schema versions 0→1→2, backup first, all or nothing).
 
+- **2026-11-25 — Opening an access link only shows a "Sign in" button; pressing it (POST) uses the link.** Found for real: the iPhone said "link no longer works" because Messages/Notes had fetched the link to build a preview, which used it up 27 s after it was created. Preview bots never press buttons.
+
 ## Temporary limitations
 
 - One budget per category, the same every month (no per-month override yet). Past months are compared with today's budgets: if you change a budget, the yearly chart changes too.
