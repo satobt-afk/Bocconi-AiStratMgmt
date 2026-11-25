@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import budgeting, transactions
+from backend import advice, budgeting, transactions
 from backend.agent import run_agent
 from backend.receipt import read_receipt
 from backend.model_client import ModelUnavailable, get_model_client
@@ -183,3 +183,9 @@ def year_overview(year: Optional[int] = None, conn=Depends(get_conn)):
     if not 2000 <= year <= 2100:
         raise HTTPException(status_code=422, detail="Year must be between 2000 and 2100")
     return {"year": year, "months": budgeting.monthly_totals(conn, year)}
+
+
+@app.get("/api/tips")
+def tips(conn=Depends(get_conn)):
+    """Proactive saving tips for the current month (computed in Python, shown on Home)."""
+    return {"tips": advice.saving_tips(conn)}

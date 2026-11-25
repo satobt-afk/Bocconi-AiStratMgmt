@@ -22,6 +22,8 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 - **2026-11-25 — Charts are plain SVG drawn in the browser, with no chart library.** They work offline (the demo room may have no internet) and add no dependency. Python computes the data (`/api/daily`, `/api/year`); the browser only draws it.
 - **2026-11-25 — "Ideal pace" = rent due on day 1, the rest of the budget spread evenly over the month.** This is the same split as the forecast, so a rent payment on the 1st does not look like overspending.
 
+- **2026-11-25 — Proactive tips are rules in Python (`advice.py`), not AI.** They appear instantly on Home, with no 10 s model wait, and they are explainable. "Usual" = the average spent in that category by the same day of the month, over the previous active months (up to 3). A category that was never used before is compared with its budget pace instead: with the demo data, "usually 0 €" produced a nonsense tip ("skip 1 ride" for a transport pass). A tip needs ≥ 10 € and ≥ 25 % above usual; at most 3 tips, biggest first; rent never gets one. The coach can read the same tips through `get_saving_tips`.
+
 ## Temporary limitations
 
 - One budget per category, the same every month (no per-month override yet). Past months are compared with today's budgets: if you change a budget, the yearly chart changes too.

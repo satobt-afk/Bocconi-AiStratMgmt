@@ -169,3 +169,10 @@ def test_invalid_month_returns_422(client):
 
 def test_invalid_budget_returns_422(client):
     assert client.put("/api/budgets/casino", json={"amount": 10}).status_code == 422
+
+
+def test_tips_endpoint_lists_current_month_tips(client):
+    response = client.get("/api/tips")
+
+    assert response.status_code == 200
+    assert response.json() == {"tips": []}  # empty database: nothing to say

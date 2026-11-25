@@ -50,11 +50,15 @@ function monthName(month) {
 }
 
 async function renderHome() {
-  const [status, expenses, daily] = await Promise.all([
+  const isCurrentMonth = currentMonth === todayISO().slice(0, 7);
+  const [status, expenses, daily, tipData] = await Promise.all([
     api(`/api/status?month=${currentMonth}`),
     api(`/api/expenses?month=${currentMonth}`),
     api(`/api/daily?month=${currentMonth}`),
+    isCurrentMonth ? api("/api/tips") : Promise.resolve({ tips: [] }),
   ]);
+  renderTips(tipData.tips);
+  const tipCategories = new Set(tipData.tips.map((t) => t.category));
   drawDonut(status);
   drawPace(daily);
 
@@ -75,6 +79,7 @@ async function renderHome() {
   const entries = Object.entries(status.categories);
   const nearlyUsed = (c) => c.budget > 0 && c.remaining > 0 && c.spent / c.budget >= 0.85;
   $("alerts").innerHTML = entries
+    .filter(([name, c]) => !tipCategories.has(name)) // a tip card already covers it
     .filter(([, c]) => c.over_budget || nearlyUsed(c))
     .map(([name, c]) => {
       const s = CATEGORY_STYLE[name];
@@ -319,6 +324,7 @@ const TOOL_LABELS = {
   get_budget_status: () => "📊 checked your budget",
   forecast_month_end: () => "🔮 forecast your month end",
   get_recent_expenses: () => "🧾 looked at recent expenses",
+  get_saving_tips: () => "💡 checked where you can save",
   can_afford: (a) => `🧮 checked ${a.amount ?? "?"} € in ${CATEGORY_STYLE[a.category]?.label ?? a.category}`,
 };
 
@@ -388,6 +394,31 @@ $("chat-form").addEventListener("submit", (event) => {
 
 $("suggestions").addEventListener("click", (event) => {
   if (event.target.matches(".chip")) askCoach(event.target.textContent);
+});
+
+// ---------- Proactive saving tips ----------
+
+function renderTips(tips) {
+  $("tips").innerHTML = tips
+    .map((t) => {
+      const s = CATEGORY_STYLE[t.category];
+      const question = `How can I spend less on ${s.label.toLowerCase()} this month?`;
+      return `
+        <div class="tip ${t.kind === "over_budget" ? "over" : ""}">
+          <div class="tip-head"><span class="bubble" style="background:${s.soft}">${s.emoji}</span><b>💡 Tip</b></div>
+          <p>${escapeHtml(t.message)}</p>
+          <p class="tip-action">👉 ${escapeHtml(t.tip)}</p>
+          <button type="button" class="tip-ask" data-question="${escapeHtml(question)}">🤖 Ask the coach</button>
+        </div>`;
+    })
+    .join("");
+}
+
+$("tips").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-question]");
+  if (!button) return;
+  showView("coach");
+  askCoach(button.dataset.question);
 });
 
 // ---------- Charts (plain SVG: no library, works offline) ----------

@@ -20,10 +20,10 @@ We believe exchange students make better spending decisions when they can see, a
 | 🤖 AI budget coach: answers questions like *"Can I afford a 150 € weekend?"* using tools on the student's real data | ✅ built |
 | 📸 Receipt scanning: a photo is read by a vision model (`qwen3-vl:2b-instruct`), checked by Python, then confirmed by the student | ✅ built |
 | 📊 Dashboards: spending by category (donut), day-by-day spending vs ideal pace, month-by-month comparison over the year | ✅ built |
-| 💡 Proactive advice: alert when a category runs faster than usual, with a concrete saving tip | 🔜 planned |
+| 💡 Proactive advice: a category running faster than usual (compared with the student's previous months at the same date, or with the budget pace) gets a tip with a concrete action; one tap asks the coach | ✅ built |
 
 ## How the AI is used (and kept honest)
-The coach is an **agent**, not a chatbot. The language model chooses which tool to call (`can_afford`, `get_budget_status`, `forecast_month_end`, `get_recent_expenses`). Python runs that tool on the real data, and the model then phrases the answer.
+The coach is an **agent**, not a chatbot. The language model chooses which tool to call (`can_afford`, `get_budget_status`, `forecast_month_end`, `get_saving_tips`, `get_recent_expenses`). Python runs that tool on the real data, and the model then phrases the answer.
 
 - **The model never computes money.** All numbers come from tested Python functions.
 - **Errors stay visible.** The app shows which tool was used ("checked 150 € in Travel"), and Python's own verdict word for word ("📌 From your data").

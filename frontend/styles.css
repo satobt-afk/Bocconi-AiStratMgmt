@@ -200,3 +200,12 @@ input::placeholder { color: #c9c6bd; }
 .stat b { font-size: 18px; }
 .tabbar button { max-width: 110px; }
 .bar-hit { cursor: pointer; }
+
+/* Proactive tips */
+.tip { margin-top: 10px; padding: 12px; border-radius: 14px; background: var(--warn-soft); color: var(--warn); font-size: 13px; line-height: 1.45; }
+.tip.over { background: var(--danger-soft); color: var(--danger); }
+.tip p { margin: 6px 0 0; }
+.tip-head { display: flex; align-items: center; gap: 8px; }
+.tip-head .bubble { width: 30px; height: 30px; font-size: 16px; }
+.tip-action { color: var(--text); font-weight: 600; }
+.tip-ask { margin-top: 8px; border: 1px solid currentColor; background: #fff; color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
