@@ -121,3 +121,29 @@ def test_me_tells_the_page_who_is_there(conn, monkeypatch):
     create_user(conn, user_id="me")
     member, _ = open_link(create_access_link(conn, "me"))
     assert member.get("/api/me").json()["kind"] == "member"
+
+
+def test_demo_link_never_replaces_a_real_accounts_session(conn, monkeypatch):
+    # Security review: another website could send a signed-in owner to /demo and
+    # swap their session for a sandbox (forced logout). /demo must keep it.
+    monkeypatch.setenv("DEMO_MODE", "on")
+    create_user(conn, user_id="me")
+    add_expense(conn, "me", 34.6, "groceries", "2026-11-23", merchant="Esselunga")
+    me, _ = open_link(create_access_link(conn, "me"))
+
+    response = me.get("/demo", follow_redirects=False)
+
+    assert response.status_code == 303 and "set-cookie" not in response.headers
+    assert me.get("/api/me").json()["kind"] == "member"
+    assert [e["merchant"] for e in me.get("/api/expenses").json()] == ["Esselunga"]
+
+
+def test_opening_the_demo_again_keeps_the_same_sandbox(conn, monkeypatch):
+    monkeypatch.setenv("DEMO_MODE", "on")
+    visitor = TestClient(app)
+    visitor.get("/demo")
+    visitor.post("/api/expenses", json={"amount": 5, "category": "other", "date": "2026-11-02", "merchant": "MINE"})
+
+    visitor.get("/demo")
+
+    assert "MINE" in [e["merchant"] for e in visitor.get("/api/expenses").json()]

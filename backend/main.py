@@ -298,10 +298,14 @@ def join(token: str, conn=Depends(get_conn)):
 
 
 @app.get("/demo")
-def demo(conn=Depends(get_conn)):
+def demo(request: Request, conn=Depends(get_conn)):
     """Demo mode (only with DEMO_MODE=on): a new private sandbox, pre-filled with the demo story."""
     if not demo_enabled():
         raise HTTPException(status_code=404)
+    # A browser that is already signed in keeps its session: another website could
+    # otherwise send a signed-in owner here and swap their session for a sandbox.
+    if sessions.user_for_token(conn, request.cookies.get(sessions.COOKIE_NAME)):
+        return RedirectResponse("/", status_code=303)
     delete_expired_guests(conn)  # sandboxes older than 24 h go before a new one is made
     created = [r[0] for r in conn.execute("SELECT created_at FROM users WHERE label = 'guest'")]
     hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(timespec="seconds")  # same format as created_at

@@ -8,7 +8,7 @@ The schema version is stored in SQLite itself (`PRAGMA user_version`):
 `migrate(conn)` brings any database to the latest version. It is safe to run
 on every start: an up-to-date database is left untouched. Before changing an
 existing file it makes a backup copy, and existing data is kept and given to
-an "owner" user (claimed later from the owner's browser).
+an "owner" user (opened later with `python -m backend.access --owner`).
 """
 
 import sqlite3
