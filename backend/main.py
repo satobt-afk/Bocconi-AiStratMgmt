@@ -10,14 +10,13 @@ from datetime import date
 from pathlib import Path
 from typing import Iterator, List, Literal, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import advice, budgeting, transactions
+from backend import advice, budgeting, sessions, transactions
 from backend.agent import run_agent
-from backend.db import create_user
 from backend.receipt import read_receipt
 from backend.model_client import ModelUnavailable, get_model_client
 
@@ -38,12 +37,16 @@ def get_conn() -> Iterator:
         conn.close()
 
 
-def current_user(conn=Depends(get_conn)) -> str:
-    """Who is asking. TEMPORARY, multi-user step 2: there is still a single local user
-    (the owner of the migrated data, or one created on first use). Step 3 replaces this
-    with a server-side session cookie; endpoints already take the user from here only."""
-    row = conn.execute("SELECT id FROM users ORDER BY (label = 'owner') DESC, created_at LIMIT 1").fetchone()
-    return row["id"] if row else create_user(conn, label="owner")
+def current_user(request: Request, conn=Depends(get_conn)) -> str:
+    """Who is asking: the user of the session cookie, looked up by the server.
+
+    The browser never says who it is; a missing or unknown cookie is refused (401).
+    Every endpoint that touches data, or the AI models, depends on this.
+    """
+    user = sessions.user_for_token(conn, request.cookies.get(sessions.COOKIE_NAME))
+    if user is None:
+        raise HTTPException(status_code=401, detail="This app is private: open your access link or the demo link.")
+    return user
 
 
 def get_model():
@@ -156,7 +159,7 @@ def chat(body: ChatIn, conn=Depends(get_conn), user=Depends(current_user), model
 
 
 @app.post("/api/receipts/scan")
-def scan_receipt(body: ReceiptIn, model=Depends(get_model)):
+def scan_receipt(body: ReceiptIn, user=Depends(current_user), model=Depends(get_model)):  # signed-in users only
     """Read a receipt photo and return a PROPOSED expense. Nothing is saved: the student confirms."""
     image = body.image.split(",", 1)[1] if body.image.startswith("data:") else body.image
     try:
