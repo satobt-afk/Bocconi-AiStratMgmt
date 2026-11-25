@@ -28,6 +28,10 @@ async function api(path, options = {}) {
     ...options,
   });
   const body = await response.json();
+  if (response.status === 401) {
+    showLocked(); // session missing or gone: back to the "private app" screen
+    throw new Error("Please sign in again with your access link.");
+  }
   if (!response.ok) {
     // FastAPI sends either a message string or a list of field errors.
     const detail = Array.isArray(body.detail) ? "Please fill in every required field." : body.detail;
@@ -576,5 +580,24 @@ function showToast(message) {
 
 // ---------- Start ----------
 
-resetForm();
-showView("home");
+// Signed in? Ask the server (the session cookie is HttpOnly: the page cannot read it).
+function showLocked(demoAvailable) {
+  document.body.classList.add("locked");
+  $("view-locked").hidden = false;
+  if (demoAvailable !== undefined) $("demo-link").hidden = !demoAvailable;
+}
+
+async function start() {
+  let me;
+  try {
+    me = await (await fetch("/api/me")).json();
+  } catch (err) {
+    return showToast("Can't reach the server.");
+  }
+  if (!me.signed_in) return showLocked(me.demo_available);
+  $("demo-banner").hidden = me.kind !== "guest";
+  resetForm();
+  showView("home");
+}
+
+start();

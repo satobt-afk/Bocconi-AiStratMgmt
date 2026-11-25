@@ -52,11 +52,11 @@ def test_fresh_database_gets_the_multi_user_schema_without_any_user():
 
     info = migrate(conn)
 
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 2
     assert info["owner_user_id"] is None
     assert rows(conn, "SELECT COUNT(*) FROM users") == [(0,)]
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"users", "sessions", "expenses", "budgets"} <= tables
+    assert {"users", "sessions", "access_links", "expenses", "budgets"} <= tables
 
 
 def test_existing_data_is_kept_and_given_to_an_owner_user(tmp_path):
@@ -91,7 +91,7 @@ def test_running_the_migration_twice_changes_nothing(tmp_path):
 
     second = migrate(conn, db_path=tmp_path / "budget.db")
 
-    assert second == {"from_version": 1, "to_version": 1, "owner_user_id": None, "backup": None}
+    assert second == {"from_version": 2, "to_version": 2, "owner_user_id": None, "backup": None}
     assert rows(conn, "SELECT COUNT(*) FROM users") == [(1,)]
     assert rows(conn, "SELECT COUNT(*) FROM expenses") == [(3,)]
     assert first["owner_user_id"]
@@ -146,3 +146,29 @@ def test_a_failed_migration_leaves_the_old_database_untouched(tmp_path):
     assert conn.execute("PRAGMA user_version").fetchone()[0] == 0
     assert rows(conn, "SELECT COUNT(*) FROM expenses") == [(3,)]
     assert "users" not in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+
+
+
+def test_version_1_database_gets_access_links_and_keeps_everything(tmp_path):
+    # Version 1 = what step 2 produced on the real database
+    path = tmp_path / "budget.db"
+    conn = v0_database(path)
+    conn.execute("PRAGMA user_version = 0")
+    from backend import db
+    real_version = db.SCHEMA_VERSION
+    db.SCHEMA_VERSION = 1  # build a version-1 database as it existed before step 4
+    try:
+        migrate(conn, db_path=path)
+    finally:
+        db.SCHEMA_VERSION = real_version
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert "access_links" not in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    owner_before = rows(conn, "SELECT id, label FROM users")
+
+    info = migrate(conn, db_path=path)
+
+    assert info["from_version"] == 1 and info["to_version"] == 2
+    assert info["backup"] is not None
+    assert rows(conn, "SELECT id, label FROM users") == owner_before
+    assert rows(conn, "SELECT COUNT(*) FROM expenses") == [(3,)]
+    assert "access_links" in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}

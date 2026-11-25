@@ -6,19 +6,22 @@ below, which validate input and delegate to transactions.py / budgeting.py.
 
 import base64
 import binascii
+import os
 from datetime import date
 from pathlib import Path
 from typing import Iterator, List, Literal, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import advice, budgeting, sessions, transactions
+from backend import access, advice, budgeting, sessions, transactions
 from backend.agent import run_agent
-from backend.receipt import read_receipt
+from backend.db import create_user
+from backend.demo import seed_demo
 from backend.model_client import ModelUnavailable, get_model_client
+from backend.receipt import read_receipt
 
 app = FastAPI(title="Personal Financial Agent")
 
@@ -201,3 +204,59 @@ def year_overview(year: Optional[int] = None, conn=Depends(get_conn), user=Depen
 def tips(conn=Depends(get_conn), user=Depends(current_user)):
     """Proactive saving tips for the current month (computed in Python, shown on Home)."""
     return {"tips": advice.saving_tips(conn, user)}
+
+
+
+# ---------- Ways in: personal access links and the demo mode ----------
+
+GUEST_HOURS = 24  # demo sandboxes are temporary
+
+
+def demo_enabled() -> bool:
+    """The demo door is closed unless the server is started with DEMO_MODE=on."""
+    return os.environ.get("DEMO_MODE") == "on"
+
+
+def _signed_in(response, conn, user_id: str, max_age: Optional[int] = None):
+    settings = sessions.cookie_settings()
+    if max_age is not None:
+        settings["max_age"] = max_age
+    response.set_cookie(value=sessions.new_session(conn, user_id), **settings)
+    return response
+
+
+LINK_PROBLEM_PAGE = """<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Link not valid</title>
+<link rel="stylesheet" href="/static/styles.css"></head><body><div class="app locked-page">
+<div class="logo">🔒</div><h1>This link no longer works</h1>
+<p class="muted">Access links work once and only for 15 minutes. Ask for a new one.</p></div></body></html>"""
+
+
+@app.get("/join/{token}")
+def join(token: str, conn=Depends(get_conn)):
+    """Personal access link: one use, 15 minutes. Signs this browser in to the link's account."""
+    user_id = access.redeem_access_link(conn, token)
+    if user_id is None:
+        return HTMLResponse(LINK_PROBLEM_PAGE, status_code=400)
+    return _signed_in(RedirectResponse("/", status_code=303), conn, user_id)
+
+
+@app.get("/demo")
+def demo(conn=Depends(get_conn)):
+    """Demo mode (only with DEMO_MODE=on): a new private sandbox, pre-filled with the demo story."""
+    if not demo_enabled():
+        raise HTTPException(status_code=404)
+    guest = create_user(conn, label="guest")
+    seed_demo(conn, guest)
+    return _signed_in(RedirectResponse("/", status_code=303), conn, guest, max_age=GUEST_HOURS * 3600)
+
+
+@app.get("/api/me")
+def me(request: Request, conn=Depends(get_conn)):
+    """Public: lets the page decide between the app and the "private app" screen. Reveals no data."""
+    user = sessions.user_for_token(conn, request.cookies.get(sessions.COOKIE_NAME))
+    kind = None
+    if user:
+        label = conn.execute("SELECT label FROM users WHERE id = ?", (user,)).fetchone()[0]
+        kind = "guest" if label == "guest" else "member"
+    return {"signed_in": user is not None, "kind": kind, "demo_available": demo_enabled()}

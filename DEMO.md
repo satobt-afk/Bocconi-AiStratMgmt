@@ -19,15 +19,15 @@ About 6 minutes of demo, plus questions. Everything runs locally on the Mac: no 
 3. In the project folder:
    ```bash
    source .venv/bin/activate
-   python -m backend.demo        # fresh demo data + demo receipt dated today
+   python -m backend.demo        # demo receipt dated today (data/demo-receipt.jpg)
    python -m backend.warmup      # loads both AI models (~30 s)
-   BUDGET_DB=data/demo.db python -m uvicorn backend.main:app --host 0.0.0.0
+   DEMO_MODE=on python -m uvicorn backend.main:app --host 0.0.0.0
    ```
-4. Find the Mac's address (System Settings → Wi-Fi → Details → IP address) and open `http://<that address>:8000` on the phone.
-5. Check: the Home screen shows the 💡 Restaurant tip. Ask the coach one throwaway question.
+4. Find the Mac's address (System Settings → Wi-Fi → Details → IP address) and open `http://<that address>:8000/demo` on the phone: you get a fresh demo sandbox.
+5. Check: the Home screen shows the 🎓 demo banner and the 💡 Restaurant tip. Ask the coach one throwaway question.
 6. Keep `data/demo-receipt.jpg` open on the Mac (plan B for the scan).
 
-The demo uses `data/demo.db`, so your real data (`data/budget.db`) is never touched. Every demo expense shows a "demo data" tag.
+The app is private. Without a session, it shows a "Private app" screen. With `DEMO_MODE=on`, a "Try the demo" button appears, and **each visitor gets their own sandbox** pre-filled with the demo story: the professor can try it on their own phone without seeing anyone else's data. Sandboxes are separate from your real account, which you open with your personal access link (`python -m backend.access --owner`). Every demo expense shows a "demo data" tag.
 
 ## The script
 

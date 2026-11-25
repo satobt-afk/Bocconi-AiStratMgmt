@@ -3,6 +3,7 @@
 The schema version is stored in SQLite itself (`PRAGMA user_version`):
     0 = single-user database (expenses and budgets belong to nobody in particular)
     1 = multi-user: users, sessions, and a user_id on every expense and budget
+    2 = personal access links (one use, short-lived) to sign a browser in
 
 `migrate(conn)` brings any database to the latest version. It is safe to run
 on every start: an up-to-date database is left untouched. Before changing an
@@ -16,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 USERS = """
 CREATE TABLE IF NOT EXISTS users (
@@ -56,6 +57,16 @@ CREATE TABLE {name} (
 );
 """
 
+ACCESS_LINKS = """
+CREATE TABLE IF NOT EXISTS access_links (
+    token_hash TEXT PRIMARY KEY,             -- SHA-256 of the link's secret, never the secret itself
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at    TEXT                          -- set when redeemed: a link works only once
+)
+"""
+
 INDEXES = "CREATE INDEX IF NOT EXISTS expenses_by_user_and_date ON expenses (user_id, date);"
 
 
@@ -80,11 +91,12 @@ def backup_database(conn: sqlite3.Connection, db_path: Union[str, Path]) -> Path
 
 
 def migrate(conn: sqlite3.Connection, db_path: Optional[Union[str, Path]] = None) -> dict:
-    """Bring the database to SCHEMA_VERSION.
+    """Bring the database to SCHEMA_VERSION, one numbered step at a time.
 
     Returns {"from_version", "to_version", "owner_user_id", "backup"}:
     owner_user_id is set when existing data was given to a new owner user;
-    backup is the path of the copy made before changing a file database.
+    backup is the path of the copy made before changing an existing file database.
+    All steps run in one transaction: on any error, nothing changes.
     """
     conn.execute("PRAGMA foreign_keys = ON")
     version = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -92,50 +104,18 @@ def migrate(conn: sqlite3.Connection, db_path: Optional[Union[str, Path]] = None
     if version >= SCHEMA_VERSION:
         return info
 
-    is_old_single_user = "expenses" in _tables(conn)
-    if is_old_single_user and db_path is not None and str(db_path) != ":memory:":
+    has_tables = "expenses" in _tables(conn)
+    if has_tables and db_path is not None and str(db_path) != ":memory:":
         info["backup"] = backup_database(conn, db_path)
 
-    conn.execute("PRAGMA foreign_keys = OFF")  # tables are rebuilt below; re-enabled at the end
+    conn.execute("PRAGMA foreign_keys = OFF")  # tables may be rebuilt below; re-enabled at the end
     try:
-        conn.execute("BEGIN")  # all or nothing: any error rolls the whole migration back
-        conn.execute(USERS)  # statements one by one: executescript() would commit midway
-        conn.execute(SESSIONS)
-
-        if is_old_single_user:
-            has_data = conn.execute(
-                "SELECT (SELECT COUNT(*) FROM expenses) + (SELECT COUNT(*) FROM budgets)"
-            ).fetchone()[0] > 0
-            owner = uuid.uuid4().hex if has_data else None
-            if owner:
-                conn.execute("INSERT INTO users (id, created_at, label) VALUES (?, ?, 'owner')", (owner, _now()))
-                info["owner_user_id"] = owner
-
-            # SQLite cannot add a NOT NULL column or change a primary key in place:
-            # build the new tables, copy every row, then swap them in.
-            conn.execute(EXPENSES_V1.format(name="expenses_v1"))
-            if owner:
-                conn.execute(
-                    "INSERT INTO expenses_v1 (id, user_id, amount_cents, category, date, merchant, source) "
-                    "SELECT id, ?, amount_cents, category, date, merchant, source FROM expenses",
-                    (owner,),
-                )
-            conn.execute("DROP TABLE expenses")
-            conn.execute("ALTER TABLE expenses_v1 RENAME TO expenses")
-
-            conn.execute(BUDGETS_V1.format(name="budgets_v1"))
-            if owner:
-                conn.execute(
-                    "INSERT INTO budgets_v1 (user_id, category, limit_cents) SELECT ?, category, limit_cents FROM budgets",
-                    (owner,),
-                )
-            conn.execute("DROP TABLE budgets")
-            conn.execute("ALTER TABLE budgets_v1 RENAME TO budgets")
-        else:
-            conn.execute(EXPENSES_V1.format(name="expenses"))
-            conn.execute(BUDGETS_V1.format(name="budgets"))
-
-        conn.execute(INDEXES)
+        conn.execute("BEGIN")  # all or nothing; statements one by one (executescript() would commit midway)
+        # A step runs if the database is older than it and the target includes it.
+        if version < 1 <= SCHEMA_VERSION:
+            info["owner_user_id"] = _to_version_1(conn, is_old_single_user=has_tables)
+        if version < 2 <= SCHEMA_VERSION:
+            conn.execute(ACCESS_LINKS)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.commit()
     except Exception:
@@ -144,6 +124,46 @@ def migrate(conn: sqlite3.Connection, db_path: Optional[Union[str, Path]] = None
     finally:
         conn.execute("PRAGMA foreign_keys = ON")
     return info
+
+
+def _to_version_1(conn: sqlite3.Connection, is_old_single_user: bool) -> Optional[str]:
+    """0 -> 1: add users and sessions, give every expense and budget a user. Returns the owner id, if any."""
+    conn.execute(USERS)
+    conn.execute(SESSIONS)
+    owner = None
+    if is_old_single_user:
+        has_data = conn.execute(
+            "SELECT (SELECT COUNT(*) FROM expenses) + (SELECT COUNT(*) FROM budgets)"
+        ).fetchone()[0] > 0
+        if has_data:
+            owner = uuid.uuid4().hex
+            conn.execute("INSERT INTO users (id, created_at, label) VALUES (?, ?, 'owner')", (owner, _now()))
+
+        # SQLite cannot add a NOT NULL column or change a primary key in place:
+        # build the new tables, copy every row, then swap them in.
+        conn.execute(EXPENSES_V1.format(name="expenses_v1"))
+        if owner:
+            conn.execute(
+                "INSERT INTO expenses_v1 (id, user_id, amount_cents, category, date, merchant, source) "
+                "SELECT id, ?, amount_cents, category, date, merchant, source FROM expenses",
+                (owner,),
+            )
+        conn.execute("DROP TABLE expenses")
+        conn.execute("ALTER TABLE expenses_v1 RENAME TO expenses")
+
+        conn.execute(BUDGETS_V1.format(name="budgets_v1"))
+        if owner:
+            conn.execute(
+                "INSERT INTO budgets_v1 (user_id, category, limit_cents) SELECT ?, category, limit_cents FROM budgets",
+                (owner,),
+            )
+        conn.execute("DROP TABLE budgets")
+        conn.execute("ALTER TABLE budgets_v1 RENAME TO budgets")
+    else:
+        conn.execute(EXPENSES_V1.format(name="expenses"))
+        conn.execute(BUDGETS_V1.format(name="budgets"))
+    conn.execute(INDEXES)
+    return owner
 
 
 def create_user(conn: sqlite3.Connection, user_id: Optional[str] = None, label: Optional[str] = None) -> str:

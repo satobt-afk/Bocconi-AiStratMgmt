@@ -28,11 +28,13 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 
 - **2026-11-25 — Tips explain WHY a category runs ahead** (`advice._explain`, still plain Python). The checks, in order: pricier than usual (average ≥ 1.3× the usual, about the same count) → "pick cheaper places, you would have saved X"; more often than usual (≥ 2 more than usual) → the general tip; one place taking ≥ 50% of the category (≥ 2 visits) → name it; ≥ 70% on weekends (≥ 2) → a weekend limit. If none applies, there is no insight. The coach's saving answers also get the 📌 card with Python's exact wording: in testing, Qwen said "28 €, which is 39 € more than usual" (39 € was the total saving, not the difference per meal).
 
+- **2026-11-25 — Multi-user, private by default.** Users are isolated in SQLite by a required `user_id`: in every data function and SQL query, and bound by the server to the coach's tools (the model cannot pick a user). The server identifies a browser only by its session cookie (32 random bytes, stored as SHA-256; HttpOnly, SameSite=Lax, Secure with `APP_ENV=production`). There is no open sign-up: real accounts get in with a one-time, 15-minute access link (`python -m backend.access`), and visitors get in only through `/demo` when `DEMO_MODE=on`, each in their own pre-filled sandbox. We chose this over an open guest mode because the real users are known (the student, a relative) and an open link would let strangers use the Mac's AI. The data from before multi-user was migrated to an "owner" account (schema versions 0→1→2, backup first, all or nothing).
+
 ## Temporary limitations
 
 - One budget per category, the same every month (no per-month override yet). Past months are compared with today's budgets: if you change a budget, the yearly chart changes too.
 - The yearly view uses the calendar year (Jan–Dec), not the exchange period.
-- Single user: no accounts or authentication.
+- Demo sandboxes are not deleted automatically yet (step 5), and there are no per-user rate limits yet.
 - AI coach: answers take ~7–12 s, and the first question after Ollama starts is slower (the model has to load). Italian answers are weaker (it once invented a "weekly" budget).
 - AI coach is read-only: it cannot add expenses yet (planned with a confirmation step).
 - The chat is lost when the page reloads.
