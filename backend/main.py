@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import budgeting, transactions
+from backend import advice, budgeting, transactions
 from backend.agent import run_agent
 from backend.receipt import read_receipt
 from backend.model_client import ModelUnavailable, get_model_client
@@ -165,3 +165,27 @@ def scan_receipt(body: ReceiptIn, model=Depends(get_model)):
             status_code=503,
             detail="The receipt reader is offline. Start the Ollama app on this computer and try again.",
         )
+
+
+@app.get("/api/daily")
+def daily(month: Optional[str] = None, conn=Depends(get_conn)):
+    """Day-by-day spending of a month with the ideal pace (month evolution chart)."""
+    try:
+        return budgeting.daily_spending(conn, month or date.today().strftime("%Y-%m"))
+    except ValueError as error:
+        raise _bad_input(error)
+
+
+@app.get("/api/year")
+def year_overview(year: Optional[int] = None, conn=Depends(get_conn)):
+    """Spent vs budget for each month of a year (month-by-month comparison chart)."""
+    year = year or date.today().year
+    if not 2000 <= year <= 2100:
+        raise HTTPException(status_code=422, detail="Year must be between 2000 and 2100")
+    return {"year": year, "months": budgeting.monthly_totals(conn, year)}
+
+
+@app.get("/api/tips")
+def tips(conn=Depends(get_conn)):
+    """Proactive saving tips for the current month (computed in Python, shown on Home)."""
+    return {"tips": advice.saving_tips(conn)}

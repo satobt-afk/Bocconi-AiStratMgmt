@@ -110,7 +110,7 @@ def test_every_tool_is_offered_to_the_model(conn):
     run_agent(conn, model, [], "Hi", today=TODAY)
 
     names = {tool["name"] for tool in model.calls[0][1]}
-    assert names == {"get_budget_status", "forecast_month_end", "can_afford", "get_recent_expenses"}
+    assert names == {"get_budget_status", "forecast_month_end", "can_afford", "get_recent_expenses", "get_saving_tips"}
 
 
 @pytest.mark.parametrize(
@@ -159,3 +159,15 @@ def test_tools_used_shows_the_real_category(conn):
     result = run_agent(conn, model, [], "Weekend?", today=TODAY)
 
     assert result["tools_used"] == [{"name": "can_afford", "arguments": {"amount": 50, "category": "travel"}}]
+
+
+def test_saving_tips_tool_returns_python_tips(conn):
+    add_expense(conn, 90, "travel", "2026-11-03")  # budget pace by the 25th: 83.33 €, only 6.67 € ahead: no tip
+    set_budget(conn, "restaurant", 30)
+    add_expense(conn, 60, "restaurant", "2026-11-04")  # pace 25 €, 35 € ahead and over budget: tip
+    model = FakeModel([call("get_saving_tips"), ModelReply("Cook at home.")])
+
+    run_agent(conn, model, [], "Where can I save?", today=TODAY)
+
+    tips = json.loads(model.calls[1][0][-1]["content"])["tips"]
+    assert tips[0]["category"] == "restaurant"

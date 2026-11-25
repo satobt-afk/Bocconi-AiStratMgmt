@@ -182,3 +182,30 @@ input::placeholder { color: #c9c6bd; }
 .scan-status.done { background: #e1f5ee; color: #085041; }
 .scan-status.error { background: var(--danger-soft); color: var(--danger); }
 .scan-status ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* Charts (plain SVG, no library: works offline) */
+.chart svg { display: block; width: 100%; height: auto; }
+.chart-caption { margin: 8px 0 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.chart-caption b { color: var(--text); }
+.donut-card { display: flex; align-items: center; gap: 16px; }
+.donut { width: 128px; flex-shrink: 0; }
+.legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.legend li { display: flex; align-items: center; gap: 8px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.legend .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend .pct { color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+.stat span { display: block; font-size: 11px; color: var(--muted); }
+.stat b { font-size: 18px; }
+.tabbar button { max-width: 110px; }
+.bar-hit { cursor: pointer; }
+
+/* Proactive tips */
+.tip { margin-top: 10px; padding: 12px; border-radius: 14px; background: var(--warn-soft); color: var(--warn); font-size: 13px; line-height: 1.45; }
+.tip.over { background: var(--danger-soft); color: var(--danger); }
+.tip p { margin: 6px 0 0; }
+.tip-head { display: flex; align-items: center; gap: 8px; }
+.tip-head .bubble { width: 30px; height: 30px; font-size: 16px; }
+.tip-action { color: var(--text); font-weight: 600; }
+.tip-ask { margin-top: 8px; border: 1px solid currentColor; background: #fff; color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }

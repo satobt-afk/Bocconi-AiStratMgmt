@@ -36,7 +36,20 @@
         </div>
       </div>
 
+      <div id="tips"></div>
       <div id="alerts"></div>
+
+      <h2>Where your money goes 🍩</h2>
+      <div class="card donut-card">
+        <div id="donut" class="donut"></div>
+        <ul id="donut-legend" class="legend"></ul>
+      </div>
+
+      <h2>Day by day 📈</h2>
+      <div class="card">
+        <div id="pace-chart" class="chart"></div>
+        <p id="pace-caption" class="chart-caption"></p>
+      </div>
 
       <h2>Categories</h2>
       <div id="categories" class="stack"></div>
@@ -108,12 +121,32 @@
       </form>
     </section>
 
+    <!-- YEAR: month-by-month comparison -->
+    <section id="view-year" class="view" hidden>
+      <div class="month-switch">
+        <button class="icon-btn" id="prev-year" aria-label="Previous year">‹</button>
+        <span id="year-label">…</span>
+        <button class="icon-btn" id="next-year" aria-label="Next year">›</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>Spent this year</span><b id="year-total">0 €</b></div>
+        <div class="stat"><span>Average / month</span><b id="year-average">0 €</b></div>
+        <div class="stat"><span>Months over budget</span><b id="year-over">0</b></div>
+      </div>
+      <h2>Month by month 📊</h2>
+      <div class="card">
+        <div id="year-chart" class="chart"></div>
+        <p class="chart-caption">Dashed line = monthly budget. Tap a month to open it.</p>
+      </div>
+    </section>
+
     <div id="toast" class="toast" hidden></div>
 
     <nav class="tabbar">
       <button data-view="home" class="active"><span>🏠</span>Home</button>
       <button data-view="add"><span>➕</span>Add</button>
       <button data-view="coach"><span>🤖</span>Coach</button>
+      <button data-view="year"><span>📅</span>Year</button>
       <button data-view="budgets"><span>🎯</span>Budgets</button>
     </nav>
   </div>

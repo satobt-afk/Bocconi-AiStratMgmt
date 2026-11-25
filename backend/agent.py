@@ -13,7 +13,7 @@ import sqlite3
 from datetime import date
 from typing import Callable, Dict, List, Optional
 
-from backend import budgeting, transactions
+from backend import advice, budgeting, transactions
 
 MAX_HISTORY = 10  # previous user/assistant messages kept as context
 
@@ -46,6 +46,7 @@ Rules:
 - Never invent numbers. Always call a tool to get amounts, then use exactly the numbers it returns.
 - For "can I afford / can I buy / should I spend" questions, call can_afford with the most fitting category:
 {hints}
+- For "where can I save / where am I spending too much" questions, call get_saving_tips and pass on its tips.
 - In tool results, "spent" is money already spent and "remaining" is money left. A negative remaining means over budget.
 - can_afford returns a "summary" sentence: base your answer on it and keep its meaning
   ("Possible but tight" is not a no).
@@ -81,6 +82,11 @@ TOOLS = [
         },
     },
     {
+        "name": "get_saving_tips",
+        "description": "Categories where the student spends faster than usual this month, each with a concrete saving tip. Use it for 'where can I save?' or 'where am I overspending?'.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+    {
         "name": "get_recent_expenses",
         "description": "The 10 most recent expenses of this month (date, amount, category, merchant).",
         "parameters": {"type": "object", "properties": {}},
@@ -97,6 +103,7 @@ def _tool_functions(conn: sqlite3.Connection, today: date) -> Dict[str, Callable
             conn, float(amount), _normalize_category(category), today=today
         ),
         "get_recent_expenses": lambda: {"expenses": transactions.list_expenses(conn, month=month)[-10:]},
+        "get_saving_tips": lambda: {"tips": advice.saving_tips(conn, today=today)},
     }
 
 

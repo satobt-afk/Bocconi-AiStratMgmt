@@ -19,11 +19,11 @@ We believe exchange students make better spending decisions when they can see, a
 | 🏠 Monthly status: what is left, days left, over-budget alerts; months reset on the 1st, history kept | ✅ built |
 | 🤖 AI budget coach: answers questions like *"Can I afford a 150 € weekend?"* using tools on the student's real data | ✅ built |
 | 📸 Receipt scanning: a photo is read by a vision model (`qwen3-vl:2b-instruct`), checked by Python, then confirmed by the student | ✅ built |
-| 📊 Dashboards: spending by category, month evolution, month-by-month comparison over the year | 🔜 planned |
-| 💡 Proactive advice: alert when a category runs faster than usual, with a concrete saving tip | 🔜 planned |
+| 📊 Dashboards: spending by category (donut), day-by-day spending vs ideal pace, month-by-month comparison over the year | ✅ built |
+| 💡 Proactive advice: a category running faster than usual (compared with the student's previous months at the same date, or with the budget pace) gets a tip with a concrete action; one tap asks the coach | ✅ built |
 
 ## How the AI is used (and kept honest)
-The coach is an **agent**, not a chatbot. The language model chooses which tool to call (`can_afford`, `get_budget_status`, `forecast_month_end`, `get_recent_expenses`). Python runs that tool on the real data, and the model then phrases the answer.
+The coach is an **agent**, not a chatbot. The language model chooses which tool to call (`can_afford`, `get_budget_status`, `forecast_month_end`, `get_saving_tips`, `get_recent_expenses`). Python runs that tool on the real data, and the model then phrases the answer.
 
 - **The model never computes money.** All numbers come from tested Python functions.
 - **Errors stay visible.** The app shows which tool was used ("checked 150 € in Travel"), and Python's own verdict word for word ("📌 From your data").
@@ -48,6 +48,9 @@ See [CLAUDE.md §2](CLAUDE.md#2-how-to-run-it) for the exact commands. You also 
 2. Then open the app at `http://127.0.0.1:8000` → 🎯 set budgets → ➕ add expenses → 🤖 ask the coach.
 
 To open it on a phone on the same Wi-Fi, start the server with `--host 0.0.0.0` and open `http://<your-computer-ip>:8000`. This makes the app reachable by anyone on that network, so only do it on a network you trust.
+
+## Live demo
+See [DEMO.md](DEMO.md): the checklist, a 6-minute script, plan B and likely questions. `python -m backend.demo` builds a separate demo database, and `python -m backend.warmup` loads the models before presenting.
 
 ## Evaluation approach
 We plan to ask exchange students to use the app for one month, then compare with how they managed the previous months: did they overspend less, and did they feel more in control? This is a first evaluation idea, not proof that the app causes any improvement.

@@ -18,6 +18,7 @@ Start the server:
 Run tests:
 `python -m pytest`
 Open the page at `http://127.0.0.1:8000/`.
+Demo data (separate database, never `data/budget.db`): `python -m backend.demo`, then start the server with `BUDGET_DB=data/demo.db`. Load the models before a demo: `python -m backend.warmup`.
 Verify `http://127.0.0.1:8000/health` returns HTTP 200 and `{"status": "ok"}`.
 One backend process must serve the page and API on the same port.
 

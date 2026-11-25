@@ -185,6 +185,40 @@ def can_afford(conn: sqlite3.Connection, amount: Amount, category: str, today: O
     }
 
 
+def daily_spending(conn: sqlite3.Connection, month: str, today: Optional[date] = None) -> dict:
+    """Day-by-day spending of `month`, its running total, and the ideal pace to compare with.
+
+    Ideal pace: fixed costs (rent) are due from day 1, the rest of the budget is
+    spread evenly over the month. Running totals stop at today (the future is unknown).
+    """
+    check_month(month)
+    today = today or date.today()
+    year, mon = int(month[:4]), int(month[5:7])
+    days_in_month = calendar.monthrange(year, mon)[1]
+
+    budgets = _budgets_cents(conn)
+    fixed = sum(c for cat, c in budgets.items() if cat in FIXED_CATEGORIES)
+    variable = sum(c for cat, c in budgets.items() if cat not in FIXED_CATEGORIES)
+    rows = conn.execute(
+        "SELECT date, SUM(amount_cents) AS total FROM expenses WHERE substr(date, 1, 7) = ? GROUP BY date",
+        (month,),
+    )
+    per_day = {r["date"]: r["total"] for r in rows}
+
+    days, running = [], 0
+    for d in range(1, days_in_month + 1):
+        day = date(year, mon, d)
+        spent = per_day.get(day.isoformat(), 0)
+        running += spent
+        days.append({
+            "date": day.isoformat(),
+            "spent": to_euros(spent),
+            "cumulative": to_euros(running) if day <= today else None,
+            "ideal": to_euros(fixed + round(variable * d / days_in_month)),
+        })
+    return {"month": month, "total_budget": to_euros(fixed + variable), "days": days}
+
+
 def monthly_totals(conn: sqlite3.Connection, year: int) -> List[dict]:
     """Total spent and total budget for each of the 12 months of `year`."""
     rows = conn.execute(
