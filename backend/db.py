@@ -144,3 +144,11 @@ def migrate(conn: sqlite3.Connection, db_path: Optional[Union[str, Path]] = None
     finally:
         conn.execute("PRAGMA foreign_keys = ON")
     return info
+
+
+def create_user(conn: sqlite3.Connection, user_id: Optional[str] = None, label: Optional[str] = None) -> str:
+    """Create a user and return its id: random unless a test gives one. Never take it from a browser."""
+    user_id = user_id or uuid.uuid4().hex
+    with conn:
+        conn.execute("INSERT INTO users (id, created_at, label) VALUES (?, ?, ?)", (user_id, _now(), label))
+    return user_id

@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Optional
 
 from backend.budgeting import set_budget
+from backend.db import create_user
 from backend.transactions import DEFAULT_DB_PATH, add_expense, connect
 
 DEMO_DB_PATH = DEFAULT_DB_PATH.parent / "demo.db"
@@ -68,29 +69,29 @@ def _month(today: date, back: int):
     return index // 12, index % 12 + 1
 
 
-def seed_demo(conn: sqlite3.Connection, today: Optional[date] = None) -> None:
-    """Replace everything in `conn` with the demo story. Only use it on a demo database."""
+def seed_demo(conn: sqlite3.Connection, user_id: str, today: Optional[date] = None) -> None:
+    """Replace `user_id`'s expenses and budgets with the demo story. Other users are not touched."""
     today = today or date.today()
     with conn:
-        conn.execute("DELETE FROM expenses")
-        conn.execute("DELETE FROM budgets")
+        conn.execute("DELETE FROM expenses WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM budgets WHERE user_id = ?", (user_id,))
     for category, amount in BUDGETS.items():
-        set_budget(conn, category, amount)
+        set_budget(conn, user_id, category, amount)
 
     for back, extras in ((2, []), (1, LAST_MONTH_EXTRAS)):
         year, month = _month(today, back)
         last_day = calendar.monthrange(year, month)[1]
         for day, amount, category, merchant in TYPICAL_MONTH + extras:
-            add_expense(conn, amount, category, date(year, month, min(day, last_day)).isoformat(),
+            add_expense(conn, user_id, amount, category, date(year, month, min(day, last_day)).isoformat(),
                         merchant=merchant, source="synthetic")
 
     for day, amount, category, merchant in THIS_MONTH:
         if day <= today.day:
-            add_expense(conn, amount, category, today.replace(day=day).isoformat(),
+            add_expense(conn, user_id, amount, category, today.replace(day=day).isoformat(),
                         merchant=merchant, source="synthetic")
     for fraction, merchant in HOT_RESTAURANTS:
         day = max(1, round(fraction * today.day))
-        add_expense(conn, 28, "restaurant", today.replace(day=day).isoformat(),
+        add_expense(conn, user_id, 28, "restaurant", today.replace(day=day).isoformat(),
                     merchant=merchant, source="synthetic")
 
 
@@ -138,8 +139,12 @@ def make_demo_receipt(today: date, out: Path = DEMO_RECEIPT_PATH) -> bool:
 
 def main() -> None:
     DEMO_DB_PATH.parent.mkdir(exist_ok=True)
+    # demo.db only ever holds generated data: rebuild it from scratch each time.
+    # (Your real data lives in data/budget.db, which this script never opens.)
+    DEMO_DB_PATH.unlink(missing_ok=True)
     conn = connect(DEMO_DB_PATH)
-    seed_demo(conn)
+    demo_user = create_user(conn, label="demo")
+    seed_demo(conn, demo_user)
     conn.close()
     print(f"Demo data ready in {DEMO_DB_PATH}")
     if make_demo_receipt(date.today()):

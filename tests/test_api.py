@@ -3,9 +3,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.main import app, get_conn, get_model
+from backend.main import app, current_user, get_conn, get_model
 from backend.model_client import ModelReply, ModelUnavailable
-from backend.transactions import connect
+from tests.helpers import USER, new_db
 
 
 class ScriptedModel:
@@ -20,8 +20,9 @@ class ScriptedModel:
 
 @pytest.fixture
 def client():
-    conn = connect(":memory:")  # fresh, empty database for every test
+    conn = new_db()  # fresh, empty database for every test
     app.dependency_overrides[get_conn] = lambda: conn
+    app.dependency_overrides[current_user] = lambda: USER
     yield TestClient(app)
     app.dependency_overrides.clear()
 

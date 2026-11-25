@@ -13,6 +13,7 @@ from backend.agent import run_agent
 from backend.budgeting import set_budget
 from backend.model_client import ModelReply, ToolCall
 from backend.transactions import add_expense, connect
+from tests.helpers import USER, new_db
 
 TODAY = date(2026, 11, 25)
 
@@ -29,10 +30,10 @@ class FakeModel:
 
 @pytest.fixture
 def conn():
-    conn = connect(":memory:")
-    set_budget(conn, "rent", 400)
-    set_budget(conn, "travel", 100)
-    add_expense(conn, 400, "rent", "2026-11-01")
+    conn = new_db()
+    set_budget(conn, USER, "rent", 400)
+    set_budget(conn, USER, "travel", 100)
+    add_expense(conn, USER, 400, "rent", "2026-11-01")
     return conn
 
 
@@ -43,7 +44,7 @@ def call(name, **arguments):
 def test_plain_question_needs_no_tool(conn):
     model = FakeModel([ModelReply("Ciao! How can I help?")])
 
-    result = run_agent(conn, model, [], "Hi", today=TODAY)
+    result = run_agent(conn, USER, model, [], "Hi", today=TODAY)
 
     assert result == {"reply": "Ciao! How can I help?", "tools_used": [], "facts": []}
 
@@ -51,7 +52,7 @@ def test_plain_question_needs_no_tool(conn):
 def test_tool_result_is_sent_back_to_the_model(conn):
     model = FakeModel([call("can_afford", amount=150, category="travel"), ModelReply("It's tight.")])
 
-    result = run_agent(conn, model, [], "Can I afford a 150 € weekend?", today=TODAY)
+    result = run_agent(conn, USER, model, [], "Can I afford a 150 € weekend?", today=TODAY)
 
     assert result["reply"] == "It's tight."
     assert result["tools_used"] == [{"name": "can_afford", "arguments": {"amount": 150, "category": "travel"}}]
@@ -65,7 +66,7 @@ def test_python_verdict_is_returned_word_for_word(conn):
     # The model may rephrase badly; the app also shows Python's own sentence.
     model = FakeModel([call("can_afford", amount=150, category="travel"), ModelReply("Sure, go!")])
 
-    result = run_agent(conn, model, [], "Can I afford a 150 € weekend?", today=TODAY)
+    result = run_agent(conn, USER, model, [], "Can I afford a 150 € weekend?", today=TODAY)
 
     assert result["facts"] == ["No: it costs 150 € but only 100 € is left this month."]
 
@@ -75,7 +76,7 @@ def test_hint_word_sent_as_category_is_mapped_to_the_real_category(conn, word):
     # Real Qwen once sent category="week-end" instead of "travel".
     model = FakeModel([call("can_afford", amount=50, category=word), ModelReply("ok")])
 
-    result = run_agent(conn, model, [], "Weekend?", today=TODAY)
+    result = run_agent(conn, USER, model, [], "Weekend?", today=TODAY)
 
     sent_back = json.loads(model.calls[1][0][-1]["content"])
     assert sent_back["category"] == "travel"
@@ -85,7 +86,7 @@ def test_hint_word_sent_as_category_is_mapped_to_the_real_category(conn, word):
 def test_category_hints_cover_other_languages(conn):
     model = FakeModel([ModelReply("ok")])
 
-    run_agent(conn, model, [], "Hi", today=TODAY)
+    run_agent(conn, USER, model, [], "Hi", today=TODAY)
 
     can_afford_tool = next(t for t in model.calls[0][1] if t["name"] == "can_afford")
     hints = can_afford_tool["parameters"]["properties"]["category"]["description"].lower()
@@ -96,7 +97,7 @@ def test_category_hints_cover_other_languages(conn):
 def test_system_prompt_gives_today_and_forbids_invented_numbers(conn):
     model = FakeModel([ModelReply("ok")])
 
-    run_agent(conn, model, [], "Hi", today=TODAY)
+    run_agent(conn, USER, model, [], "Hi", today=TODAY)
 
     system = model.calls[0][0][0]
     assert system["role"] == "system"
@@ -107,7 +108,7 @@ def test_system_prompt_gives_today_and_forbids_invented_numbers(conn):
 def test_every_tool_is_offered_to_the_model(conn):
     model = FakeModel([ModelReply("ok")])
 
-    run_agent(conn, model, [], "Hi", today=TODAY)
+    run_agent(conn, USER, model, [], "Hi", today=TODAY)
 
     names = {tool["name"] for tool in model.calls[0][1]}
     assert names == {"get_budget_status", "forecast_month_end", "can_afford", "get_recent_expenses", "get_saving_tips"}
@@ -124,7 +125,7 @@ def test_every_tool_is_offered_to_the_model(conn):
 def test_tool_errors_go_back_to_the_model_instead_of_crashing(conn, bad_call):
     model = FakeModel([bad_call, ModelReply("Sorry, could you rephrase?")])
 
-    result = run_agent(conn, model, [], "???", today=TODAY)
+    result = run_agent(conn, USER, model, [], "???", today=TODAY)
 
     assert result["reply"] == "Sorry, could you rephrase?"
     assert "error" in json.loads(model.calls[1][0][-1]["content"])
@@ -133,7 +134,7 @@ def test_tool_errors_go_back_to_the_model_instead_of_crashing(conn, bad_call):
 def test_loop_stops_after_a_few_steps(conn):
     model = FakeModel([])  # always asks for another tool
 
-    result = run_agent(conn, model, [], "Status?", today=TODAY, max_steps=3)
+    result = run_agent(conn, USER, model, [], "Status?", today=TODAY, max_steps=3)
 
     assert len(model.calls) == 3
     assert "couldn't" in result["reply"].lower()
@@ -145,7 +146,7 @@ def test_only_recent_user_and_assistant_history_is_kept(conn):
         {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg {i}"} for i in range(20)
     ]
 
-    run_agent(conn, model, history, "Hi", today=TODAY)
+    run_agent(conn, USER, model, history, "Hi", today=TODAY)
 
     sent = model.calls[0][0]
     assert [m["role"] for m in sent].count("system") == 1  # only our own system prompt
@@ -156,18 +157,18 @@ def test_only_recent_user_and_assistant_history_is_kept(conn):
 def test_tools_used_shows_the_real_category(conn):
     model = FakeModel([call("can_afford", amount=50, category="week-end"), ModelReply("ok")])
 
-    result = run_agent(conn, model, [], "Weekend?", today=TODAY)
+    result = run_agent(conn, USER, model, [], "Weekend?", today=TODAY)
 
     assert result["tools_used"] == [{"name": "can_afford", "arguments": {"amount": 50, "category": "travel"}}]
 
 
 def test_saving_tips_tool_returns_python_tips(conn):
-    add_expense(conn, 90, "travel", "2026-11-03")  # budget pace by the 25th: 83.33 €, only 6.67 € ahead: no tip
-    set_budget(conn, "restaurant", 30)
-    add_expense(conn, 60, "restaurant", "2026-11-04")  # pace 25 €, 35 € ahead and over budget: tip
+    add_expense(conn, USER, 90, "travel", "2026-11-03")  # budget pace by the 25th: 83.33 €, only 6.67 € ahead: no tip
+    set_budget(conn, USER, "restaurant", 30)
+    add_expense(conn, USER, 60, "restaurant", "2026-11-04")  # pace 25 €, 35 € ahead and over budget: tip
     model = FakeModel([call("get_saving_tips"), ModelReply("Cook at home.")])
 
-    run_agent(conn, model, [], "Where can I save?", today=TODAY)
+    run_agent(conn, USER, model, [], "Where can I save?", today=TODAY)
 
     tips = json.loads(model.calls[1][0][-1]["content"])["tips"]
     assert tips[0]["category"] == "restaurant"
@@ -175,11 +176,11 @@ def test_saving_tips_tool_returns_python_tips(conn):
 
 def test_saving_tips_are_also_shown_word_for_word(conn):
     # Real Qwen once said "28 €, which is 39 € more than usual" (39 € was the total saving).
-    set_budget(conn, "restaurant", 30)
-    add_expense(conn, 60, "restaurant", "2026-11-04")
+    set_budget(conn, USER, "restaurant", 30)
+    add_expense(conn, USER, 60, "restaurant", "2026-11-04")
     model = FakeModel([call("get_saving_tips"), ModelReply("Cook at home.")])
 
-    result = run_agent(conn, model, [], "Where can I save?", today=TODAY)
+    result = run_agent(conn, USER, model, [], "Where can I save?", today=TODAY)
 
     assert len(result["facts"]) == 1
     assert "Cook at home until Dec 1" in result["facts"][0]

@@ -16,6 +16,7 @@ import time
 import zlib
 
 from backend.agent import run_agent
+from backend.db import create_user
 from backend.model_client import ModelUnavailable, get_model_client
 from backend.transactions import connect
 
@@ -39,7 +40,8 @@ def main() -> int:
         started = time.time()
         # A real (throwaway) coach question: the model reads the long system prompt and
         # tool list once and caches it, so the first question in the demo is faster.
-        run_agent(connect(":memory:"), client, [], "Can I afford a 10 € cinema ticket?")
+        scratch = connect(":memory:")  # throwaway database and user: no real data involved
+        run_agent(scratch, create_user(scratch), client, [], "Can I afford a 10 € cinema ticket?")
         print(f"Coach model ready ({time.time() - started:.0f} s)")
         started = time.time()
         client.read_image("Is this image blank? Answer in JSON.", _white_png(),

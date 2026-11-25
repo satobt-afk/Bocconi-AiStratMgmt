@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from backend import advice, budgeting, transactions
 from backend.agent import run_agent
+from backend.db import create_user
 from backend.receipt import read_receipt
 from backend.model_client import ModelUnavailable, get_model_client
 
@@ -35,6 +36,14 @@ def get_conn() -> Iterator:
         yield conn
     finally:
         conn.close()
+
+
+def current_user(conn=Depends(get_conn)) -> str:
+    """Who is asking. TEMPORARY, multi-user step 2: there is still a single local user
+    (the owner of the migrated data, or one created on first use). Step 3 replaces this
+    with a server-side session cookie; endpoints already take the user from here only."""
+    row = conn.execute("SELECT id FROM users ORDER BY (label = 'owner') DESC, created_at LIMIT 1").fetchone()
+    return row["id"] if row else create_user(conn, label="owner")
 
 
 def get_model():
@@ -89,56 +98,56 @@ def list_categories():
 
 
 @app.get("/api/status")
-def month_status(month: Optional[str] = None, conn=Depends(get_conn)):
+def month_status(month: Optional[str] = None, conn=Depends(get_conn), user=Depends(current_user)):
     """Budget status of `month` (YYYY-MM), the current month by default."""
     try:
-        return budgeting.get_budget_status(conn, month or date.today().strftime("%Y-%m"))
+        return budgeting.get_budget_status(conn, user, month or date.today().strftime("%Y-%m"))
     except ValueError as error:
         raise _bad_input(error)
 
 
 @app.get("/api/expenses")
-def list_expenses(month: Optional[str] = None, conn=Depends(get_conn)):
+def list_expenses(month: Optional[str] = None, conn=Depends(get_conn), user=Depends(current_user)):
     try:
-        return transactions.list_expenses(conn, month=month)
+        return transactions.list_expenses(conn, user, month=month)
     except ValueError as error:
         raise _bad_input(error)
 
 
 @app.post("/api/expenses", status_code=201)
-def create_expense(expense: ExpenseIn, conn=Depends(get_conn)):
+def create_expense(expense: ExpenseIn, conn=Depends(get_conn), user=Depends(current_user)):
     try:
         new_id = transactions.add_expense(
-            conn, expense.amount, expense.category, expense.date,
+            conn, user, expense.amount, expense.category, expense.date,
             merchant=expense.merchant, source=expense.source,
         )
     except ValueError as error:
         raise _bad_input(error)
-    return next(e for e in transactions.list_expenses(conn) if e["id"] == new_id)
+    return next(e for e in transactions.list_expenses(conn, user) if e["id"] == new_id)
 
 
 @app.get("/api/budgets")
-def list_budgets(conn=Depends(get_conn)):
-    return budgeting.get_budgets(conn)
+def list_budgets(conn=Depends(get_conn), user=Depends(current_user)):
+    return budgeting.get_budgets(conn, user)
 
 
 @app.put("/api/budgets/{category}")
-def update_budget(category: str, budget: BudgetIn, conn=Depends(get_conn)):
+def update_budget(category: str, budget: BudgetIn, conn=Depends(get_conn), user=Depends(current_user)):
     try:
-        budgeting.set_budget(conn, category, budget.amount)
+        budgeting.set_budget(conn, user, category, budget.amount)
     except ValueError as error:
         raise _bad_input(error)
-    return {"category": category, "budget": budgeting.get_budgets(conn)[category]}
+    return {"category": category, "budget": budgeting.get_budgets(conn, user)[category]}
 
 
 @app.post("/api/chat")
-def chat(body: ChatIn, conn=Depends(get_conn), model=Depends(get_model)):
+def chat(body: ChatIn, conn=Depends(get_conn), user=Depends(current_user), model=Depends(get_model)):
     """Ask the AI budget coach. The browser keeps the conversation and sends it back each time."""
     message = body.message.strip()
     if not message:
         raise HTTPException(status_code=422, detail="Message is empty")
     try:
-        return run_agent(conn, model, body.history, message)
+        return run_agent(conn, user, model, body.history, message)
     except ModelUnavailable:
         raise HTTPException(
             status_code=503,
@@ -168,24 +177,24 @@ def scan_receipt(body: ReceiptIn, model=Depends(get_model)):
 
 
 @app.get("/api/daily")
-def daily(month: Optional[str] = None, conn=Depends(get_conn)):
+def daily(month: Optional[str] = None, conn=Depends(get_conn), user=Depends(current_user)):
     """Day-by-day spending of a month with the ideal pace (month evolution chart)."""
     try:
-        return budgeting.daily_spending(conn, month or date.today().strftime("%Y-%m"))
+        return budgeting.daily_spending(conn, user, month or date.today().strftime("%Y-%m"))
     except ValueError as error:
         raise _bad_input(error)
 
 
 @app.get("/api/year")
-def year_overview(year: Optional[int] = None, conn=Depends(get_conn)):
+def year_overview(year: Optional[int] = None, conn=Depends(get_conn), user=Depends(current_user)):
     """Spent vs budget for each month of a year (month-by-month comparison chart)."""
     year = year or date.today().year
     if not 2000 <= year <= 2100:
         raise HTTPException(status_code=422, detail="Year must be between 2000 and 2100")
-    return {"year": year, "months": budgeting.monthly_totals(conn, year)}
+    return {"year": year, "months": budgeting.monthly_totals(conn, user, year)}
 
 
 @app.get("/api/tips")
-def tips(conn=Depends(get_conn)):
+def tips(conn=Depends(get_conn), user=Depends(current_user)):
     """Proactive saving tips for the current month (computed in Python, shown on Home)."""
-    return {"tips": advice.saving_tips(conn)}
+    return {"tips": advice.saving_tips(conn, user)}

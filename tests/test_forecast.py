@@ -10,23 +10,24 @@ import pytest
 
 from backend.budgeting import can_afford, forecast_month_end, set_budget
 from backend.transactions import add_expense, connect
+from tests.helpers import USER, new_db
 
 
 @pytest.fixture
 def conn():
-    conn = connect(":memory:")
-    set_budget(conn, "rent", 400)
-    set_budget(conn, "groceries", 150)
-    set_budget(conn, "restaurant", 60)
-    set_budget(conn, "travel", 100)
-    add_expense(conn, 400, "rent", "2026-11-01")
-    add_expense(conn, 30, "groceries", "2026-11-05")
-    add_expense(conn, 70, "restaurant", "2026-11-10")
+    conn = new_db()
+    set_budget(conn, USER, "rent", 400)
+    set_budget(conn, USER, "groceries", 150)
+    set_budget(conn, USER, "restaurant", 60)
+    set_budget(conn, USER, "travel", 100)
+    add_expense(conn, USER, 400, "rent", "2026-11-01")
+    add_expense(conn, USER, 30, "groceries", "2026-11-05")
+    add_expense(conn, USER, 70, "restaurant", "2026-11-10")
     return conn  # total budget 710; 100 of day-to-day spending in 10 days
 
 
 def test_forecast_extrapolates_day_to_day_spending_but_not_rent(conn):
-    forecast = forecast_month_end(conn, today=date(2026, 11, 10))
+    forecast = forecast_month_end(conn, USER, today=date(2026, 11, 10))
 
     # 100 € of non-rent spending over 10 days = 10 €/day, 20 days still to come
     assert forecast["daily_average"] == 10
@@ -36,14 +37,14 @@ def test_forecast_extrapolates_day_to_day_spending_but_not_rent(conn):
 
 
 def test_forecast_on_last_day_adds_nothing(conn):
-    forecast = forecast_month_end(conn, today=date(2026, 11, 30))
+    forecast = forecast_month_end(conn, USER, today=date(2026, 11, 30))
 
     assert forecast["expected_additional_spending"] == 0
     assert forecast["projected_total"] == 500
 
 
 def test_affordable_purchase(conn):
-    result = can_afford(conn, 50, "travel", today=date(2026, 11, 28))
+    result = can_afford(conn, USER, 50, "travel", today=date(2026, 11, 28))
 
     assert result["verdict"] == "yes"
     assert result["remaining_after_purchase"] == 160
@@ -53,7 +54,7 @@ def test_affordable_purchase(conn):
 
 def test_purchase_that_breaks_the_forecast_is_tight(conn):
     # 210 € left now, but about 200 € more day-to-day spending is expected.
-    result = can_afford(conn, 100, "travel", today=date(2026, 11, 10))
+    result = can_afford(conn, USER, 100, "travel", today=date(2026, 11, 10))
 
     assert result["verdict"] == "tight"
     assert result["remaining_after_purchase"] == 110
@@ -63,7 +64,7 @@ def test_purchase_that_breaks_the_forecast_is_tight(conn):
 
 
 def test_purchase_over_category_budget_is_tight(conn):
-    result = can_afford(conn, 20, "restaurant", today=date(2026, 11, 29))
+    result = can_afford(conn, USER, 20, "restaurant", today=date(2026, 11, 29))
 
     assert result["verdict"] == "tight"
     assert result["category_remaining_after_purchase"] == -30
@@ -71,7 +72,7 @@ def test_purchase_over_category_budget_is_tight(conn):
 
 
 def test_purchase_larger_than_what_is_left_is_no(conn):
-    result = can_afford(conn, 250, "travel", today=date(2026, 11, 29))
+    result = can_afford(conn, USER, 250, "travel", today=date(2026, 11, 29))
 
     assert result["verdict"] == "no"
     assert result["remaining_after_purchase"] == -40
@@ -80,6 +81,6 @@ def test_purchase_larger_than_what_is_left_is_no(conn):
 
 def test_can_afford_rejects_bad_input(conn):
     with pytest.raises(ValueError):
-        can_afford(conn, 0, "travel")
+        can_afford(conn, USER, 0, "travel")
     with pytest.raises(ValueError):
-        can_afford(conn, 10, "casino")
+        can_afford(conn, USER, 10, "casino")
