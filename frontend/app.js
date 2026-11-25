@@ -214,7 +214,8 @@ let expenseSource = "manual"; // becomes "receipt" when the form was filled from
 
 // Shrink the photo and draw it on white: smaller uploads, faster reading, and no
 // transparent background (a transparent PNG looked "entirely black" to the model).
-function photoToJpeg(file, maxSide = 1280) {
+// 960 px: on an M1 with 8 GB, a new receipt takes ~15 s instead of ~25 s at 1280 px, with the same result.
+function photoToJpeg(file, maxSide = 960) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {

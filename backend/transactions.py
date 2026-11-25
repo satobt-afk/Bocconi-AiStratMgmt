@@ -4,6 +4,7 @@ Money is stored as integer cents: floats cannot represent most decimal
 amounts exactly (0.1 + 0.2 != 0.3), and budgets must add up to the cent.
 """
 
+import os
 import sqlite3
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -34,8 +35,14 @@ CREATE TABLE IF NOT EXISTS budgets (
 Amount = Union[int, float, str, Decimal]
 
 
-def connect(path: Union[str, Path] = DEFAULT_DB_PATH) -> sqlite3.Connection:
+def default_db_path() -> Path:
+    """data/budget.db, unless the BUDGET_DB environment variable points elsewhere (e.g. the demo database)."""
+    return Path(os.environ["BUDGET_DB"]) if os.environ.get("BUDGET_DB") else DEFAULT_DB_PATH
+
+
+def connect(path: Union[str, Path, None] = None) -> sqlite3.Connection:
     """Open the database (":memory:" for tests) and create tables if missing."""
+    path = default_db_path() if path is None else path
     # FastAPI may run a request on a different thread than the one that opened it.
     conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.row_factory = sqlite3.Row

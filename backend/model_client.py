@@ -72,7 +72,7 @@ class OllamaClient:
             "tools": [{"type": "function", "function": t} for t in tools],
             "stream": False,
             "options": {"temperature": 0.2},  # low = more predictable answers
-            "keep_alive": "30m",  # keep the model in memory between questions
+            "keep_alive": "2h",  # keep the model in memory between questions (and through a demo)
         }
         try:
             data = self._post(f"{self.url}/api/chat", payload, self.timeout)
@@ -103,7 +103,7 @@ class OllamaClient:
             "format": schema,  # structured output: Ollama constrains the answer to this JSON shape
             "stream": False,
             "options": {"temperature": 0},
-            "keep_alive": "30m",
+            "keep_alive": "2h",
         }
         try:
             data = self._post(f"{self.url}/api/chat", payload, self.timeout)

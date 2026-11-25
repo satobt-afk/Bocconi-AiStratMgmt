@@ -49,5 +49,8 @@ See [CLAUDE.md §2](CLAUDE.md#2-how-to-run-it) for the exact commands. You also 
 
 To open it on a phone on the same Wi-Fi, start the server with `--host 0.0.0.0` and open `http://<your-computer-ip>:8000`. This makes the app reachable by anyone on that network, so only do it on a network you trust.
 
+## Live demo
+See [DEMO.md](DEMO.md): the checklist, a 6-minute script, plan B and likely questions. `python -m backend.demo` builds a separate demo database, and `python -m backend.warmup` loads the models before presenting.
+
 ## Evaluation approach
 We plan to ask exchange students to use the app for one month, then compare with how they managed the previous months: did they overspend less, and did they feel more in control? This is a first evaluation idea, not proof that the app causes any improvement.

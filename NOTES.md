@@ -24,6 +24,8 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 
 - **2026-11-25 — Proactive tips are rules in Python (`advice.py`), not AI.** They appear instantly on Home, with no 10 s model wait, and they are explainable. "Usual" = the average spent in that category by the same day of the month, over the previous active months (up to 3). A category that was never used before is compared with its budget pace instead: with the demo data, "usually 0 €" produced a nonsense tip ("skip 1 ride" for a transport pass). A tip needs ≥ 10 € and ≥ 25 % above usual; at most 3 tips, biggest first; rent never gets one. The coach can read the same tips through `get_saving_tips`.
 
+- **2026-11-25 — Demo data lives in a separate database** (`data/demo.db`, chosen with `BUDGET_DB`), rebuilt by `python -m backend.demo`. The story is generated relative to today, so the demo moments (restaurant tip, "tight" 150 € weekend, last month over budget) exist on any date; tests check 6 different dates. The demo receipt is fictional ("Supermercato Stella") and dated today.
+
 ## Temporary limitations
 
 - One budget per category, the same every month (no per-month override yet). Past months are compared with today's budgets: if you change a budget, the yearly chart changes too.
@@ -32,4 +34,4 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 - AI coach: answers take ~7–12 s, and the first question after Ollama starts is slower (the model has to load). Italian answers are weaker (it once invented a "weekly" budget).
 - AI coach is read-only: it cannot add expenses yet (planned with a confirmation step).
 - The chat is lost when the page reloads.
-- Receipt scanning was tested on clean, generated receipts only, not yet on real crumpled photos. The first scan after Ollama starts takes ~30 s to load the model, then ~3 s. On 8 GB of RAM, switching between the coach and the receipt reader can reload a model.
+- Receipt scanning was tested on clean, generated receipts only, not yet on real crumpled photos. On the M1 with 8 GB, a NEW photo takes ~15 s at 960 px (it took ~25 s at 1280 px, with the same result). Only a photo that was already read comes back in ~3 s, because Ollama caches it: an earlier note claiming "~3 s" was wrong. Both models fit in memory together (2.2 GB each), and `python -m backend.warmup` loads them before a demo.
