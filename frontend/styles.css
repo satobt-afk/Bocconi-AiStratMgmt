@@ -168,3 +168,4 @@ input::placeholder { color: #c9c6bd; }
 .chat-form input { flex: 1; border-radius: 999px; }
 .send { width: 44px; border: none; border-radius: 50%; background: var(--pink); color: #fff; font-size: 18px; cursor: pointer; }
 .send:disabled { opacity: 0.5; cursor: wait; }
+.msg.bot.fact { background: #eeedfe; color: #3c3489; border-color: transparent; font-size: 13px; }

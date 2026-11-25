@@ -289,6 +289,8 @@ async function askCoach(question) {
     thinking.remove();
     addToolChips(result.tools_used);
     addMessage("bot", result.reply || "Sorry, I have no answer for that.");
+    // Python's own verdict, word for word: the model's wording cannot change it.
+    (result.facts || []).forEach((fact) => addMessage("bot", `📌 From your data: ${fact}`, "fact"));
     chatHistory.push({ role: "user", content: question }, { role: "assistant", content: result.reply });
   } catch (err) {
     thinking.remove();

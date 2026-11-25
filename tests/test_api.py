@@ -32,7 +32,7 @@ def test_chat_returns_the_agent_reply(client):
     response = client.post("/api/chat", json={"message": "Hi", "history": []})
 
     assert response.status_code == 200
-    assert response.json() == {"reply": "Ciao!", "tools_used": []}
+    assert response.json() == {"reply": "Ciao!", "tools_used": [], "facts": []}
 
 
 def test_chat_explains_when_the_model_is_offline(client):

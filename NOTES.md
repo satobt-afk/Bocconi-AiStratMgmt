@@ -11,6 +11,8 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 
 - **2026-11-25 — AI coach = tool-calling agent on a local model.** Model: `qwen2.5:3b` via Ollama. In a benchmark on an M1 with 8 GB of RAM, `qwen3:4b` took about 100 s per answer, because of its built-in "thinking", and leaked its reasoning even with `think: false`. `qwen2.5:3b` took about 7–12 s per answer and picked the right tool every time.
 - **2026-11-25 — The model never computes money.** Tools (`can_afford`, `forecast_month_end`, …) compute in Python. `can_afford` also returns a ready-made `summary` sentence: the 3B model rephrased it well, but on its own it turned "tight" into "no".
+- **2026-11-25 — Categories are guided and corrected in Python.** In French, the 3B model filed "un week-end à 150 €" under restaurant, and later sent "week-end" as the category itself. The tool now lists keywords per category in EN/FR/IT (`CATEGORY_HINTS`), and Python maps any of those words to the real category.
+- **2026-11-25 — Python's verdict is shown word for word.** The model still sometimes turns "tight" into "no" (especially in FR/IT), so the app shows can_afford's own `summary` under the reply ("📌 From your data").
 - **2026-11-25 — Forecast = day-to-day pace.** Non-rent spending is averaged over the days elapsed, then extended to the rest of the month.
 - **2026-11-25 — Conversation history lives in the browser** and is re-sent with each question (the last 10 messages). The backend stays stateless.
 

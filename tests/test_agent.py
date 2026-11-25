@@ -45,7 +45,7 @@ def test_plain_question_needs_no_tool(conn):
 
     result = run_agent(conn, model, [], "Hi", today=TODAY)
 
-    assert result == {"reply": "Ciao! How can I help?", "tools_used": []}
+    assert result == {"reply": "Ciao! How can I help?", "tools_used": [], "facts": []}
 
 
 def test_tool_result_is_sent_back_to_the_model(conn):
@@ -59,6 +59,38 @@ def test_tool_result_is_sent_back_to_the_model(conn):
     tool_message = second_request[-1]
     assert tool_message["role"] == "tool"
     assert json.loads(tool_message["content"])["verdict"] == "no"  # only 100 € left in total
+
+
+def test_python_verdict_is_returned_word_for_word(conn):
+    # The model may rephrase badly; the app also shows Python's own sentence.
+    model = FakeModel([call("can_afford", amount=150, category="travel"), ModelReply("Sure, go!")])
+
+    result = run_agent(conn, model, [], "Can I afford a 150 € weekend?", today=TODAY)
+
+    assert result["facts"] == ["No: it costs 150 € but only 100 € is left this month."]
+
+
+@pytest.mark.parametrize("word", ["week-end", "Weekend away", "viaggio", "Voyage"])
+def test_hint_word_sent_as_category_is_mapped_to_the_real_category(conn, word):
+    # Real Qwen once sent category="week-end" instead of "travel".
+    model = FakeModel([call("can_afford", amount=50, category=word), ModelReply("ok")])
+
+    result = run_agent(conn, model, [], "Weekend?", today=TODAY)
+
+    sent_back = json.loads(model.calls[1][0][-1]["content"])
+    assert sent_back["category"] == "travel"
+    assert result["facts"][0].startswith("Yes, it fits")
+
+
+def test_category_hints_cover_other_languages(conn):
+    model = FakeModel([ModelReply("ok")])
+
+    run_agent(conn, model, [], "Hi", today=TODAY)
+
+    can_afford_tool = next(t for t in model.calls[0][1] if t["name"] == "can_afford")
+    hints = can_afford_tool["parameters"]["properties"]["category"]["description"].lower()
+    for word in ["week-end", "viaggio", "voyage", "cena", "courses"]:
+        assert word in hints
 
 
 def test_system_prompt_gives_today_and_forbids_invented_numbers(conn):
@@ -119,3 +151,11 @@ def test_only_recent_user_and_assistant_history_is_kept(conn):
     assert [m["role"] for m in sent].count("system") == 1  # only our own system prompt
     assert sent[1]["content"] == "msg 10"  # last 10 history messages
     assert sent[-1] == {"role": "user", "content": "Hi"}
+
+
+def test_tools_used_shows_the_real_category(conn):
+    model = FakeModel([call("can_afford", amount=50, category="week-end"), ModelReply("ok")])
+
+    result = run_agent(conn, model, [], "Weekend?", today=TODAY)
+
+    assert result["tools_used"] == [{"name": "can_afford", "arguments": {"amount": 50, "category": "travel"}}]
