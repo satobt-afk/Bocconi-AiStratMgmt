@@ -209,3 +209,4 @@ input::placeholder { color: #c9c6bd; }
 .tip-head .bubble { width: 30px; height: 30px; font-size: 16px; }
 .tip-action { color: var(--text); font-weight: 600; }
 .tip-ask { margin-top: 8px; border: 1px solid currentColor; background: #fff; color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.tip-insight { font-style: italic; }

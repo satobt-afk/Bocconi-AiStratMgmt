@@ -408,6 +408,7 @@ function renderTips(tips) {
         <div class="tip ${t.kind === "over_budget" ? "over" : ""}">
           <div class="tip-head"><span class="bubble" style="background:${s.soft}">${s.emoji}</span><b>💡 Tip</b></div>
           <p>${escapeHtml(t.message)}</p>
+          ${t.insight ? `<p class="tip-insight">🔍 ${escapeHtml(t.insight)}</p>` : ""}
           <p class="tip-action">👉 ${escapeHtml(t.tip)}</p>
           <button type="button" class="tip-ask" data-question="${escapeHtml(question)}">🤖 Ask the coach</button>
         </div>`;

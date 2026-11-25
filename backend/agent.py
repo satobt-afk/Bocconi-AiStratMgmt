@@ -46,7 +46,8 @@ Rules:
 - Never invent numbers. Always call a tool to get amounts, then use exactly the numbers it returns.
 - For "can I afford / can I buy / should I spend" questions, call can_afford with the most fitting category:
 {hints}
-- For "where can I save / where am I spending too much" questions, call get_saving_tips and pass on its tips.
+- For "where can I save / where am I spending too much" questions, call get_saving_tips and pass on its tips,
+  including the "insight" (why it happens) when there is one.
 - In tool results, "spent" is money already spent and "remaining" is money left. A negative remaining means over budget.
 - can_afford returns a "summary" sentence: base your answer on it and keep its meaning
   ("Possible but tight" is not a no).
@@ -160,6 +161,8 @@ def run_agent(
             tools_used.append({"name": call.name, "arguments": call.arguments})
             if "summary" in result:
                 facts.append(result["summary"])
+            for tip in result.get("tips", []):  # saving tips: show Python's wording too
+                facts.append(" ".join(part for part in (tip["insight"], tip["tip"]) if part))
             messages.append({
                 "role": "tool",
                 "tool_call_id": call.id,
