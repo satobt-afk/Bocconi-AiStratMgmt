@@ -181,6 +181,13 @@ def create_expense(expense: ExpenseIn, conn=Depends(get_conn), user=Depends(curr
     return next(e for e in transactions.list_expenses(conn, user) if e["id"] == new_id)
 
 
+@app.delete("/api/expenses/{expense_id}", status_code=204)
+def remove_expense(expense_id: int, conn=Depends(get_conn), user=Depends(current_user)):
+    """Delete one of YOUR expenses (to fix a mistake). Someone else's id gets the same 404 as a missing one."""
+    if not transactions.delete_expense(conn, user, expense_id):
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+
 @app.get("/api/budgets")
 def list_budgets(conn=Depends(get_conn), user=Depends(current_user)):
     return budgeting.get_budgets(conn, user)

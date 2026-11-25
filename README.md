@@ -14,7 +14,7 @@ We believe exchange students make better spending decisions when they can see, a
 
 | Feature | Status |
 |---|---|
-| ➕ Add an expense manually (amount, category, date, place) | ✅ built |
+| ➕ Add an expense manually (amount, category, date, place); 🗑 delete one to fix a mistake | ✅ built |
 | 🎯 Monthly budget per category (rent, groceries, restaurant, transport, leisure, travel, other) | ✅ built |
 | 🏠 Monthly status: what is left, days left, over-budget alerts; months reset on the 1st, history kept | ✅ built |
 | 🤖 AI budget coach: answers questions like *"Can I afford a 150 € weekend?"* using tools on the student's real data | ✅ built |

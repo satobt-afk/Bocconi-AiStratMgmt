@@ -108,3 +108,11 @@ def list_expenses(conn: sqlite3.Connection, user_id: str, month: Optional[str] =
         }
         for r in rows
     ]
+
+
+def delete_expense(conn: sqlite3.Connection, user_id: str, expense_id: int) -> bool:
+    """Delete one of the user's expenses. Returns False if it does not exist OR belongs to someone else:
+    the WHERE on user_id is what stops anyone from deleting another user's expense by changing the id."""
+    with conn:
+        cursor = conn.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user_id))
+    return cursor.rowcount == 1
