@@ -171,3 +171,15 @@ def test_saving_tips_tool_returns_python_tips(conn):
 
     tips = json.loads(model.calls[1][0][-1]["content"])["tips"]
     assert tips[0]["category"] == "restaurant"
+
+
+def test_saving_tips_are_also_shown_word_for_word(conn):
+    # Real Qwen once said "28 €, which is 39 € more than usual" (39 € was the total saving).
+    set_budget(conn, "restaurant", 30)
+    add_expense(conn, 60, "restaurant", "2026-11-04")
+    model = FakeModel([call("get_saving_tips"), ModelReply("Cook at home.")])
+
+    result = run_agent(conn, model, [], "Where can I save?", today=TODAY)
+
+    assert len(result["facts"]) == 1
+    assert "Cook at home until Dec 1" in result["facts"][0]

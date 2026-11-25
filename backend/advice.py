@@ -58,6 +58,78 @@ def _spent_by_day(conn: sqlite3.Connection, year: int, month: int, day: int) -> 
     return {r["category"]: r["total"] for r in rows}
 
 
+def _counts_by_day(conn: sqlite3.Connection, year: int, month: int, day: int) -> Dict[str, int]:
+    """Number of expenses per category from the 1st to `day`."""
+    last = min(day, calendar.monthrange(year, month)[1])
+    rows = conn.execute(
+        "SELECT category, COUNT(*) AS n FROM expenses WHERE date BETWEEN ? AND ? GROUP BY category",
+        (date(year, month, 1).isoformat(), date(year, month, last).isoformat()),
+    )
+    return {r["category"]: r["n"] for r in rows}
+
+
+def _month_expenses(conn: sqlite3.Connection, category: str, prefix: str, today: date) -> List[sqlite3.Row]:
+    return conn.execute(
+        "SELECT date, amount_cents, merchant FROM expenses WHERE category = ? AND substr(date, 1, 7) = ? AND date <= ?",
+        (category, prefix, today.isoformat()),
+    ).fetchall()
+
+
+# Words used in the finer tips, per category
+CHEAPER = {"groceries": "shops", "restaurant": "places", "transport": "options",
+           "leisure": "activities", "travel": "deals", "other": "options"}
+
+
+def _explain(category: str, rows: List[sqlite3.Row], usual_count: Optional[float],
+             usual_avg: Optional[int], day: int, reset: str):
+    """Find WHY a category runs ahead. Returns (driver, insight, tip) or (None, None, None).
+
+    Checked in this order: pricier than usual, more often than usual, one place
+    taking most of the money, mostly on weekends.
+    """
+    label = LABELS[category].lower()
+    count = len(rows)
+    total = sum(r["amount_cents"] for r in rows)
+    avg = round(total / count) if count else 0
+    singular, plural = SKIPPABLE[category]
+
+    if usual_avg and count and avg >= usual_avg * 1.3 and count <= (usual_count or 0) + 1:
+        saved = (avg - usual_avg) * count
+        return ("pricier",
+                f"Each {singular} costs {_fmt(avg)} on average this month, vs {_fmt(usual_avg)} usually.",
+                f"Pick cheaper {CHEAPER[category]}: at your usual {_fmt(usual_avg)} each, "
+                f"you would have saved about {_fmt(saved)}.")
+
+    if usual_count is not None and count >= usual_count + 2:
+        return ("more_often",
+                f"{count} {singular if count == 1 else plural} so far, vs {round(usual_count)} usually "
+                f"by the {_ordinal(day)}.",
+                None)  # the general tip ("skip N…", "cook at home…") already fits
+
+    places: Dict[str, List[int]] = {}
+    names: Dict[str, str] = {}
+    for r in rows:
+        key = (r["merchant"] or "").strip().lower()
+        if key:
+            places.setdefault(key, []).append(r["amount_cents"])
+            names.setdefault(key, r["merchant"].strip())
+    if places and total:
+        key, amounts = max(places.items(), key=lambda kv: sum(kv[1]))
+        share = sum(amounts) / total
+        if share >= 0.5 and len(amounts) >= 2:
+            return ("one_place",
+                    f"{round(share * 100)}% of your {label} spending is at {names[key]} ({_fmt(sum(amounts))}).",
+                    f"Try a cheaper alternative to {names[key]} until {reset}, or go there less often.")
+
+    weekend = [r["amount_cents"] for r in rows if date.fromisoformat(r["date"]).weekday() >= 5]
+    if total and len(weekend) >= 2 and sum(weekend) / total >= 0.7:
+        return ("weekends",
+                f"{round(sum(weekend) / total * 100)}% of it happened on weekends.",
+                f"Set yourself a weekend limit for {label} until {reset}: that is when most of it goes.")
+
+    return None, None, None
+
+
 def _active(conn: sqlite3.Connection, year: int, month: int) -> bool:
     prefix = f"{year:04d}-{month:02d}"
     return conn.execute("SELECT 1 FROM expenses WHERE substr(date, 1, 7) = ? LIMIT 1", (prefix,)).fetchone() is not None
@@ -86,6 +158,7 @@ def saving_tips(conn: sqlite3.Connection, today: Optional[date] = None) -> List[
         (y, m) for y, m in (_shift(year, month, -k) for k in range(1, HISTORY_MONTHS + 1)) if _active(conn, y, m)
     ]
     history = [_spent_by_day(conn, y, m, day) for y, m in history_months]
+    history_counts = [_counts_by_day(conn, y, m, day) for y, m in history_months]
     # Categories the student actually used in those months: for the others, "usual = 0 €"
     # would be meaningless, so they are compared with their budget pace instead.
     used_before = set()
@@ -97,9 +170,13 @@ def saving_tips(conn: sqlite3.Connection, today: Optional[date] = None) -> List[
         if category in FIXED_CATEGORIES:
             continue
         spent = now.get(category, 0)
+        usual_count = usual_avg = None
         if category in used_before:
             usual = round(sum(h.get(category, 0) for h in history) / len(history))
             based_on = "history"
+            n_before = sum(c.get(category, 0) for c in history_counts)
+            usual_count = n_before / len(history)
+            usual_avg = round(sum(h.get(category, 0) for h in history) / n_before) if n_before else None
         elif category in budgets:
             usual = round(budgets[category] * day / days_in_month)
             based_on = "budget"
@@ -132,8 +209,16 @@ def saving_tips(conn: sqlite3.Connection, today: Optional[date] = None) -> List[
             else:
                 tip = f"Slow down on {label.lower()} until {reset}: you are {_fmt(ahead)} ahead of your {pace}."
 
+        driver, insight, specific_tip = _explain(
+            category, _month_expenses(conn, category, prefix, today), usual_count, usual_avg, day, reset
+        )
+        if specific_tip:
+            tip = specific_tip
+
         tips.append({
             "category": category,
+            "driver": driver,
+            "insight": insight,
             "kind": kind,
             "spent": spent / 100,
             "usual": usual / 100,

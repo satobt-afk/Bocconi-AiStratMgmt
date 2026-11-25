@@ -26,6 +26,8 @@ Decisions, temporary limitations, and changing project context (see CLAUDE.md §
 
 - **2026-11-25 — Demo data lives in a separate database** (`data/demo.db`, chosen with `BUDGET_DB`), rebuilt by `python -m backend.demo`. The story is generated relative to today, so the demo moments (restaurant tip, "tight" 150 € weekend, last month over budget) exist on any date; tests check 6 different dates. The demo receipt is fictional ("Supermercato Stella") and dated today.
 
+- **2026-11-25 — Tips explain WHY a category runs ahead** (`advice._explain`, still plain Python). The checks, in order: pricier than usual (average ≥ 1.3× the usual, about the same count) → "pick cheaper places, you would have saved X"; more often than usual (≥ 2 more than usual) → the general tip; one place taking ≥ 50% of the category (≥ 2 visits) → name it; ≥ 70% on weekends (≥ 2) → a weekend limit. If none applies, there is no insight. The coach's saving answers also get the 📌 card with Python's exact wording: in testing, Qwen said "28 €, which is 39 € more than usual" (39 € was the total saving, not the difference per meal).
+
 ## Temporary limitations
 
 - One budget per category, the same every month (no per-month override yet). Past months are compared with today's budgets: if you change a budget, the yearly chart changes too.
