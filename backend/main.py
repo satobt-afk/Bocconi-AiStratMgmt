@@ -24,7 +24,27 @@ from backend.demo import seed_demo
 from backend.model_client import ModelUnavailable, get_model_client
 from backend.receipt import read_receipt
 
-app = FastAPI(title="Personal Financial Agent")
+# No automatic /docs, /redoc or /openapi.json: on the internet they would describe the whole API to anyone.
+app = FastAPI(title="Personal Financial Agent", docs_url=None, redoc_url=None, openapi_url=None)
+
+# Content Security Policy: the page may only load its own files. Inline style attributes are
+# allowed (the charts and cards use them); photos are previewed from data:/blob: URLs.
+CSP = ("default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+       "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"  # access links carry a secret in the URL
+    response.headers["Content-Security-Policy"] = CSP
+    if request.url.path.startswith("/join/"):
+        response.headers["Cache-Control"] = "no-store"
+    if os.environ.get("APP_ENV") == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
+    return response
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
