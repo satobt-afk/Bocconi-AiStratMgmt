@@ -1,17 +1,91 @@
-<!-- Minimal frontend shell for the Personal Financial Agent skeleton. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#d4537e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Budget" />
   <title>Personal Financial Agent</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <main>
-    <h1>Personal Financial Agent</h1>
-    <p>Project skeleton — features coming soon.</p>
-  </main>
+  <div class="app">
+    <header class="top">
+      <div class="logo">🐷</div>
+      <div>
+        <h1>Ciao 👋</h1>
+        <p class="muted" id="subtitle">Your student budget</p>
+      </div>
+    </header>
+
+    <!-- HOME: budget status of the selected month -->
+    <section id="view-home" class="view">
+      <div class="month-switch">
+        <button class="icon-btn" id="prev-month" aria-label="Previous month">‹</button>
+        <span id="month-label">…</span>
+        <button class="icon-btn" id="next-month" aria-label="Next month">›</button>
+      </div>
+
+      <div class="hero">
+        <div class="ring" id="ring"><span id="ring-pct">0%</span></div>
+        <div>
+          <p class="hero-label">Left to spend</p>
+          <p class="hero-amount" id="remaining">0 €</p>
+          <p class="hero-label" id="hero-detail">of 0 € this month</p>
+        </div>
+      </div>
+
+      <div id="alerts"></div>
+
+      <h2>Categories</h2>
+      <div id="categories" class="stack"></div>
+
+      <h2>Latest expenses</h2>
+      <ul id="expenses" class="expense-list"></ul>
+    </section>
+
+    <!-- ADD: manual expense -->
+    <section id="view-add" class="view" hidden>
+      <h2>New expense</h2>
+      <form id="expense-form" class="card stack" novalidate>
+        <label class="amount-field">
+          <span>Amount</span>
+          <div><input id="amount" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="12.50" required /><b>€</b></div>
+        </label>
+        <div>
+          <span class="field-label">Category</span>
+          <div id="category-chips" class="chips"></div>
+        </div>
+        <label>
+          <span class="field-label">Date</span>
+          <input id="date" type="date" required />
+        </label>
+        <label>
+          <span class="field-label">Where? (optional)</span>
+          <input id="merchant" type="text" placeholder="Esselunga" maxlength="60" />
+        </label>
+        <p id="form-error" class="error" hidden></p>
+        <button type="submit" class="primary">✅ Save expense</button>
+      </form>
+    </section>
+
+    <!-- BUDGETS: monthly limit per category -->
+    <section id="view-budgets" class="view" hidden>
+      <h2>Monthly budgets 🎯</h2>
+      <p class="muted">Same limits every month. Changes save automatically.</p>
+      <div id="budget-list" class="card stack"></div>
+      <p class="total-line">Total: <b id="budget-total">0 €</b> / month</p>
+    </section>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <nav class="tabbar">
+      <button data-view="home" class="active"><span>🏠</span>Home</button>
+      <button data-view="add"><span>➕</span>Add</button>
+      <button data-view="budgets"><span>🎯</span>Budgets</button>
+    </nav>
+  </div>
   <script src="/static/app.js"></script>
 </body>
 </html>
