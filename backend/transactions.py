@@ -36,7 +36,8 @@ Amount = Union[int, float, str, Decimal]
 
 def connect(path: Union[str, Path] = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Open the database (":memory:" for tests) and create tables if missing."""
-    conn = sqlite3.connect(str(path))
+    # FastAPI may run a request on a different thread than the one that opened it.
+    conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
     return conn

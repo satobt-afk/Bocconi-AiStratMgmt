@@ -28,6 +28,12 @@ def set_budget(conn: sqlite3.Connection, category: str, amount: Amount) -> None:
         )
 
 
+def get_budgets(conn: sqlite3.Connection) -> Dict[str, float]:
+    """Monthly limit of every category, 0 when none was set."""
+    budgets = _budgets_cents(conn)
+    return {category: to_euros(budgets.get(category, 0)) for category in CATEGORIES}
+
+
 def _budgets_cents(conn: sqlite3.Connection) -> Dict[str, int]:
     return {r["category"]: r["limit_cents"] for r in conn.execute("SELECT category, limit_cents FROM budgets")}
 
