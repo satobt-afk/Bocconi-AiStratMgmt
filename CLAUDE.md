@@ -23,6 +23,7 @@ One backend process must serve the page and API on the same port.
 
 # 3. Where things live
 `backend/` owns application logic; `backend/model_client.py` is the only file allowed to call the model.
+`backend/agent.py` runs the AI coach: it defines the tools the model may call and the agent loop; tools only wrap tested functions from `budgeting.py` and `transactions.py`.
 `frontend/` uses plain HTML, CSS, and JavaScript; do not introduce a frontend framework.
 `data/` holds retrieval material; use synthetic or explicitly approved, non-sensitive material.
 `tests/` is where every feature starts, with a test describing the expected behavior.

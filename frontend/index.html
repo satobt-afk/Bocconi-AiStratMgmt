@@ -78,11 +78,35 @@
       <p class="total-line">Total: <b id="budget-total">0 €</b> / month</p>
     </section>
 
+    <!-- COACH: AI agent chat -->
+    <section id="view-coach" class="view" hidden>
+      <div class="coach-head">
+        <div class="logo coach-logo">🤖</div>
+        <div>
+          <h2>Budget coach</h2>
+          <p class="muted">Uses your real numbers. AI answers can still be wrong.</p>
+        </div>
+      </div>
+      <div id="chat" class="chat">
+        <div class="msg bot">Ciao! Ask me anything about your budget, like whether you can afford something. 💬</div>
+      </div>
+      <div id="suggestions" class="chips">
+        <button type="button" class="chip">Can I afford a 150 € weekend trip?</button>
+        <button type="button" class="chip">Where am I spending too much?</button>
+        <button type="button" class="chip">How will my month end?</button>
+      </div>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" type="text" placeholder="Ask your coach" maxlength="500" autocomplete="off" />
+        <button type="submit" class="send" aria-label="Send">➤</button>
+      </form>
+    </section>
+
     <div id="toast" class="toast" hidden></div>
 
     <nav class="tabbar">
       <button data-view="home" class="active"><span>🏠</span>Home</button>
       <button data-view="add"><span>➕</span>Add</button>
+      <button data-view="coach"><span>🤖</span>Coach</button>
       <button data-view="budgets"><span>🎯</span>Budgets</button>
     </nav>
   </div>

@@ -233,6 +233,84 @@ $("budget-list").addEventListener("change", async (event) => {
   }
 });
 
+// ---------- Coach (AI agent) ----------
+
+// Friendly labels for the tools the agent used, so the student sees it worked on real data.
+const TOOL_LABELS = {
+  get_budget_status: () => "📊 checked your budget",
+  forecast_month_end: () => "🔮 forecast your month end",
+  get_recent_expenses: () => "🧾 looked at recent expenses",
+  can_afford: (a) => `🧮 checked ${a.amount ?? "?"} € in ${CATEGORY_STYLE[a.category]?.label ?? a.category}`,
+};
+
+const chatHistory = []; // kept in the browser only, sent with each question
+
+function addMessage(role, text, extraClass = "") {
+  const div = document.createElement("div");
+  div.className = `msg ${role} ${extraClass}`.trim();
+  div.textContent = text;
+  $("chat").appendChild(div);
+  div.scrollIntoView({ behavior: "smooth", block: "end" });
+  return div;
+}
+
+function addToolChips(tools) {
+  if (!tools.length) return;
+  const div = document.createElement("div");
+  div.className = "tools";
+  tools.forEach((t) => {
+    const chip = document.createElement("span");
+    chip.textContent = (TOOL_LABELS[t.name] || (() => `🔧 ${t.name}`))(t.arguments || {});
+    div.appendChild(chip);
+  });
+  $("chat").appendChild(div);
+}
+
+async function askCoach(question) {
+  question = question.trim();
+  if (!question) return;
+  $("suggestions").hidden = true;
+  $("chat-input").value = "";
+  $("chat-input").disabled = $("chat-form").querySelector("button").disabled = true;
+  addMessage("user", question);
+
+  // A local model takes several seconds: show that it is working.
+  const thinking = addMessage("bot", "Thinking…", "thinking");
+  const started = Date.now();
+  const timer = setInterval(() => {
+    thinking.textContent = `Thinking… ${Math.round((Date.now() - started) / 1000)}s`;
+  }, 1000);
+
+  try {
+    const result = await api("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message: question, history: chatHistory }),
+    });
+    thinking.remove();
+    addToolChips(result.tools_used);
+    addMessage("bot", result.reply || "Sorry, I have no answer for that.");
+    // Python's own verdict, word for word: the model's wording cannot change it.
+    (result.facts || []).forEach((fact) => addMessage("bot", `📌 From your data: ${fact}`, "fact"));
+    chatHistory.push({ role: "user", content: question }, { role: "assistant", content: result.reply });
+  } catch (err) {
+    thinking.remove();
+    addMessage("bot", err.message, "error");
+  } finally {
+    clearInterval(timer);
+    $("chat-input").disabled = $("chat-form").querySelector("button").disabled = false;
+    $("chat-input").focus();
+  }
+}
+
+$("chat-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  askCoach($("chat-input").value);
+});
+
+$("suggestions").addEventListener("click", (event) => {
+  if (event.target.matches(".chip")) askCoach(event.target.textContent);
+});
+
 // ---------- Navigation and toast ----------
 
 function showView(name) {
