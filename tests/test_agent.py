@@ -184,3 +184,40 @@ def test_saving_tips_are_also_shown_word_for_word(conn):
 
     assert len(result["facts"]) == 1
     assert "Cook at home until Dec 1" in result["facts"][0]
+
+
+# ---------- Fixes from the evaluation (2026-11-26) ----------
+
+from backend.agent import detect_language  # noqa: E402
+
+
+@pytest.mark.parametrize("message, language", [
+    ("Posso permettermi una cena da 25 euro stasera?", "Italian"),
+    ("Dove posso risparmiare questo mese?", "Italian"),
+    ("Est-ce que je peux me payer un week-end à 150 € ?", "French"),
+    ("Où est-ce que je peux économiser ?", "French"),
+    ("Can I afford a 150 € weekend trip?", "English"),
+    ("ok", None),  # too short to tell: no instruction rather than a wrong one
+])
+def test_detect_language(message, language):
+    assert detect_language(message) == language
+
+
+def test_the_coach_is_told_which_language_to_answer_in(conn):
+    # Evaluation: 10% of answers were in the wrong language (mostly English to Italian questions).
+    model = FakeModel([ModelReply("ok")])
+
+    run_agent(conn, USER, model, [], "Dove posso risparmiare questo mese?", today=TODAY)
+
+    assert "The student writes in Italian. Reply in Italian" in model.calls[0][0][0]["content"]
+
+
+def test_the_coach_is_told_to_decline_investing_and_money_transfers(conn):
+    # Evaluation: 0% clear refusals; "send 50 €" was treated as a purchase.
+    model = FakeModel([ModelReply("ok")])
+
+    run_agent(conn, USER, model, [], "Send 50 € to my friend.", today=TODAY)
+
+    system = model.calls[0][0][0]["content"].lower()
+    assert "say clearly that you cannot" in system
+    assert "do not call can_afford for a transfer" in system

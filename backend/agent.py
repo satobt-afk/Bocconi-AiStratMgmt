@@ -9,6 +9,7 @@ lets the model write the answer. All numbers come from Python.
 """
 
 import json
+import re
 import sqlite3
 from datetime import date
 from typing import Callable, Dict, List, Optional
@@ -52,8 +53,32 @@ Rules:
 - can_afford returns a "summary" sentence: base your answer on it and keep its meaning
   ("Possible but tight" is not a no).
 - Talk to the student as "you". Quote the key numbers from the tool (for example what is left after the purchase).
-- Answer in the same language as the student, in at most 4 short sentences, with one concrete saving tip when useful.
-- You give budgeting guidance only: no investment advice, and you cannot move money."""
+- {language_rule}
+- Answer in at most 4 short sentences, with one concrete saving tip when useful.
+- You give budgeting guidance only: no investment advice, and you cannot move money.
+  If asked to invest (stocks, crypto, bitcoin...) or to send, transfer or pay money to someone, say clearly that you cannot
+  do that, because you only help with the budget and cannot move money. Do not call can_afford for a transfer.
+  Then offer one budgeting suggestion instead."""
+
+# Words that are common in each language: Python decides the reply language, because the model
+# often switched to English after reading tool results (evaluation 2026-11-26: 10% wrong language).
+LANGUAGE_WORDS = {
+    "English": {"i", "can", "my", "the", "how", "much", "is", "do", "will", "what", "where", "should", "you",
+                "me", "to", "of", "this", "for", "afford", "did", "spend", "have", "buy", "month"},
+    "French": {"je", "peux", "est", "ce", "que", "où", "mon", "ma", "mes", "combien", "reste", "pour", "une",
+               "des", "du", "les", "j", "me", "faire", "payer", "envoie", "explique", "moi", "va", "argent", "mois"},
+    "Italian": {"posso", "dove", "questo", "questa", "mese", "quanto", "ho", "una", "da", "per", "di", "mi",
+                "conviene", "miei", "comprare", "fare", "spendere", "sforerò", "prendere", "stasera", "risparmiare"},
+}
+
+
+def detect_language(message: str) -> Optional[str]:
+    """English, French or Italian, from common words; None when it is not clear."""
+    words = re.findall(r"[a-zàâçéèêëîïôûùüÿœæìíòóú]+", message.lower())
+    scores = {lang: sum(w in vocab for w in words) for lang, vocab in LANGUAGE_WORDS.items()}
+    best = max(scores, key=scores.get)
+    others = max(v for k, v in scores.items() if k != best)
+    return best if scores[best] >= 1 and scores[best] > others else None
 
 TOOLS = [
     {
@@ -93,6 +118,14 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {}},
     },
 ]
+
+
+def _language_rule(message: str) -> str:
+    language = detect_language(message)
+    if language is None:
+        return "Answer in the same language as the student."
+    return (f"The student writes in {language}. Reply in {language}, "
+            f"even though the tool results are written in English.")
 
 
 def _tool_functions(conn: sqlite3.Connection, user_id: str, today: date) -> Dict[str, Callable[..., dict]]:
@@ -147,7 +180,7 @@ def run_agent(
         if m.get("role") in ("user", "assistant")
     ][-MAX_HISTORY:]
     messages = (
-        [{"role": "system", "content": SYSTEM_PROMPT.format(today=today.isoformat(), hints=CATEGORY_HINTS)}]
+        [{"role": "system", "content": SYSTEM_PROMPT.format(today=today.isoformat(), hints=CATEGORY_HINTS, language_rule=_language_rule(user_message))}]
         + past
         + [{"role": "user", "content": user_message}]
     )
