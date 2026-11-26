@@ -6,6 +6,31 @@ With two presenters: **A** does parts 1, 2, 4 and 7, **B** does parts 3, 5 and 6
 **No slides** (the professor doesn't want any): everything on screen is either the app itself or a page of our GitHub repository. Open these browser tabs before starting: the app (`/demo`), the repository's README, the merged pull requests, and the three evaluation summaries in `evaluation/results/` (before, baseline, after).
 Practical setup (server, warm-up, plan B): see [DEMO.md](DEMO.md).
 
+## 🗂️ Cue card (learn these by heart)
+
+**The value proposition:** For exchange students living on a fixed budget, we offer real-time spending control and personalized saving advice, using receipt scanning, auto-categorization, monthly and annual dashboards, and an AI budget coach.
+
+**3 sentences that explain the whole design:**
+1. "The AI chooses, Python computes, the human confirms."
+2. "The value is not in the model, it's in the harness around it: tools, guard rails, evaluation."
+3. "We measured it: verdicts clearly right 61 % of the time with tools vs 16 % without, and after our fixes clear refusals went from 0 % to 75 %."
+
+**The numbers (all from `evaluation/results/`, 30 questions × 3 runs, qwen2.5:3b):**
+
+| | |
+|---|---|
+| Right tool / right category | 100 % / 100 % |
+| Verdict clearly kept: with tools vs without | 61 % vs 16 % |
+| Invented amounts: with tools vs without | 1 vs 4 |
+| Clear refusals of out-of-scope requests: before → after fix | 0 % → 75 % |
+| Right language: before → after fix | 90 % → 100 % (optimistic) |
+| Median answer time: with tools vs without | 10 s vs 3 s |
+| Project | 14 pull requests, ~270 automated tests |
+
+**If you don't know an answer:** say what you measured and what you didn't. "We didn't measure that; our evaluation covers X and Y" is a precise answer.
+
+---
+
 | # | Part | Time | On screen |
 |---|---|---|---|
 | 1 | The problem | 1:00 | The app's Home screen (demo), just talk |
@@ -42,10 +67,10 @@ Optional: show the QR code of `…/demo` so the professor can try it on their ow
 |---|---|---|---|
 | 0:00 | 🏠 Home | Show the ring and the 💡 tip | "Read the ring: what is left and how many days remain. The app compares this month with **my own habits**: restaurants are running ahead, and the tip explains **why** (read the 🔍 line: pricier than usual, or more often)." |
 | 0:45 | 🏠 Home | Scroll to the charts | "Where my money goes, and my spending day by day against an ideal pace." |
-| 1:15 | 📅 Year | Tap Year, then the red bar (last month) | "History is kept, and months reset on the 1st. Last month went over budget (the red bar): that was a weekend in Rome." |
+| 1:15 | 📅 Year | Tap Year, then the red bar (last month; in January, tap ‹ to see December) | "History is kept, and months reset on the 1st. Last month went over budget (the red bar): that was a weekend in Rome." |
 | 1:45 | 🤖 Coach | Type **"Can I afford a 150 € weekend in Florence?"** | While it thinks: "This is a 3-billion-parameter model running **on this laptop**, with no cloud. It doesn't guess: it calls our Python functions on my data." |
 | 2:30 | 🤖 Coach | Point at the chip and the 📌 card | "It chose the `can_afford` tool, in Travel. The 📌 card is **Python's own verdict**, word for word: 'possible but tight'. A badly phrased answer can't mislead the student." |
-| 3:00 | 🤖 Coach | Type **"Should I put my rent money in bitcoin?"** | "And it knows its limits: no investment advice, it can't move money." |
+| 3:00 | 🤖 Coach | Type **"Should I put my rent money in bitcoin?"** | If it refuses: "And it knows its limits: no investment advice, and it can't move money." If it doesn't refuse clearly (it happens 1 time in 4): "This is exactly what our evaluation measured: it refuses clearly 75% of the time. A 3B model isn't perfect, which is why the numbers always come from Python." |
 | 3:30 | ➕ Add | 📸 Scan a real receipt | While it reads (~15 s): "A vision model reads the receipt, its answer is forced into JSON, and Python checks every field." |
 | 4:15 | ➕ Add | Show the pre-filled form, then Save | "Nothing is saved until I confirm: the AI proposes, the human decides." |
 | 4:45 | 🏠 Home | Show the new expense, maybe delete one with 🗑 | "Everything updates instantly." |
@@ -66,7 +91,7 @@ Three design rules, one sentence each:
 
 **How we built it (30 s).** On screen: the repository's merged pull requests (https://github.com/satobt-afk/Bocconi-AiStratMgmt/pulls?q=is%3Apr+is%3Amerged).
 - The architecture in one line: `Phone (HTML/JS, displays only) → secure HTTPS link → FastAPI server on our laptop → Python tools + SQLite (one isolated account per user) → local Qwen via Ollama`
-- The method: `GitHub skeleton (FastAPI + CLAUDE.md rules) → 1 branch per feature → tests first → pull request → review → merge` · 13 pull requests · about 270 automated tests
+- The method: `GitHub skeleton (FastAPI + CLAUDE.md rules) → 1 branch per feature → tests first → pull request → review → merge` · 14 pull requests · about 270 automated tests
 
 > "We started from a GitHub skeleton with a project charter, our CLAUDE.md, which sets rules like 'tests first' and 'the model never computes money'. Then we built every feature on its own branch, with its tests written first, and merged it through a pull request only once it worked. `main` was always a working version, which is why we can demo it live today."
 
@@ -83,7 +108,7 @@ Three design rules, one sentence each:
 | Right tool / right category | 100 % / 100 % | — |
 | Median answer time | 10 s | 3 s |
 
-> "So the tools are not decoration: they make the answers **four times more reliable**, at the cost of speed."
+> "So the tools are not decoration: they make the verdicts **almost four times more reliable** (61 % vs 16 %), at the cost of speed (10 s vs 3 s)."
 
 **Then** open `evaluation/results/20261126-1129-agent.md` (the re-run after our fixes): *measure → fix → measure again.*
 
@@ -93,9 +118,9 @@ Three design rules, one sentence each:
 
 **On screen:** back to the app. Just talk.
 
-> "Limits: it's a 3B model, so in French it still sometimes turns 'tight' into 'no', and once it gave an investment tip. That's exactly why the 📌 Python verdict is always shown. Answers take about 10 seconds. And today the app runs on a laptop: private, free, and nothing leaves the device, but the Mac has to be on."
+> "Limits: it's a 3B model, so in French it still sometimes turns 'tight' into 'no', and once it gave an investment tip. That's exactly why the 📌 Python verdict is always shown. Answers take about 10 seconds. And today the app runs on our laptop: private and free, no external AI service ever sees the data, but the laptop has to be on."
 
-> "Next steps: put the app online with a hosted model (an adapter is ready), let the coach add expenses with a confirmation step, and, most importantly, test our hypothesis with real exchange students: one month with the app, compared with their previous months."
+> "Next steps: put the app online with a hosted model (we have started an adapter for one, not yet tested), let the coach add expenses with a confirmation step, and, most importantly, test our hypothesis with real exchange students: one month with the app, compared with their previous months."
 
 ## 7. Close — 0:30 (A)
 
@@ -105,11 +130,11 @@ Three design rules, one sentence each:
 
 ## Likely questions (short answers)
 
-- **Why not just ChatGPT?** It doesn't know your spending. Our agent answers from your own data with numbers computed in Python, runs locally, and your financial data never leaves the device.
+- **Why not just ChatGPT?** It doesn't know your spending. Our agent answers from your own data with numbers computed in Python, and runs on our own laptop, so no external AI service ever sees your financial data.
 - **Why a small local model?** The course asked us to start with Qwen via Ollama. It's free and private. Its weaknesses are measured, and we compensate with guard rails; the model layer is swappable.
-- **How do you know the numbers are right?** The tools are 260+ automated tests written before the code. The AI's answers are checked in our evaluation: numbers are faithful 98 % of the time, and the 📌 card always shows Python's verdict.
+- **How do you know the numbers are right?** The tools are covered by about 270 automated tests, written before the code. The AI's answers are checked in our evaluation: numbers are faithful 98 % of the time, and the 📌 card always shows Python's verdict.
 - **What did the evaluation NOT measure?** It uses keyword-based scoring (ambiguous answers are flagged for a human), and it checks where the numbers come from, not whether the answer is complete. The questions were written by us, not by real users.
 - **How does this relate to the Theory-Based View?** We started from a hypothesis about student behaviour, built the minimum product to test it, and the next step is the real test with students. The AI evaluation is a smaller version of the same logic: hypothesis, experiment, control, result.
-- **Privacy and security?** The app is private: you can only get in with a one-time personal link or the demo. Each user only sees their own data, and the server checks this on every request, never trusting the browser. A security review found no vulnerability. Money can never move: no tool can do it.
+- **Privacy and security?** The app is private: you can only get in with a one-time personal link or the demo. Each user only sees their own data, and the server checks this on every request, never trusting the browser. A security review of the code found no serious vulnerability, and the one minor issue it raised was fixed. Money can never move: no tool can do it.
 - **What would it cost to scale?** Today it costs 0 € (local model). Online, a free tier is possible for a demo (we checked hosting and AI APIs). At real scale, the cost per question is the key metric to watch.
 - **What was the hardest part?** Making a small model reliable: not the model itself, but the harness around it (tools, guard rails, evaluation).
