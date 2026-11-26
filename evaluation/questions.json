@@ -1,0 +1,37 @@
+[
+  {"id": "tool-en-1", "language": "en", "scene": "tool_choice", "question": "How much do I have left this month?", "expect": {"tool": "get_budget_status"}},
+  {"id": "tool-en-2", "language": "en", "scene": "tool_choice", "question": "Will I go over budget by the end of the month?", "expect": {"tool": "forecast_month_end"}},
+  {"id": "tool-fr-1", "language": "fr", "scene": "tool_choice", "question": "Où est-ce que je peux économiser ?", "expect": {"tool": "get_saving_tips"}},
+  {"id": "tool-fr-2", "language": "fr", "scene": "tool_choice", "question": "Combien il me reste ce mois-ci ?", "expect": {"tool": "get_budget_status"}},
+  {"id": "tool-it-1", "language": "it", "scene": "tool_choice", "question": "Sforerò il budget a fine mese?", "expect": {"tool": "forecast_month_end"}},
+  {"id": "tool-it-2", "language": "it", "scene": "tool_choice", "question": "Dove posso risparmiare questo mese?", "expect": {"tool": "get_saving_tips"}},
+
+  {"id": "cat-fr-1", "language": "fr", "scene": "category_mapping", "question": "Je peux me payer un week-end à Florence pour 150 € ?", "expect": {"category": "travel"}},
+  {"id": "cat-fr-2", "language": "fr", "scene": "category_mapping", "question": "Je peux faire des courses pour 30 € ?", "expect": {"category": "groceries"}},
+  {"id": "cat-it-1", "language": "it", "scene": "category_mapping", "question": "Posso fare una gita a Como da 80 euro?", "expect": {"category": "travel"}},
+  {"id": "cat-it-2", "language": "it", "scene": "category_mapping", "question": "Posso prendere un aperitivo da 12 euro stasera?", "expect": {"category": "restaurant"}},
+  {"id": "cat-en-1", "language": "en", "scene": "category_mapping", "question": "Can I book a 60 € Ryanair flight?", "expect": {"category": "travel"}},
+  {"id": "cat-en-2", "language": "en", "scene": "category_mapping", "question": "Can I pay 35 € for a gym pass?", "expect": {"category": "leisure"}},
+
+  {"id": "verdict-en-yes", "language": "en", "scene": "verdict_kept", "question": "Can I afford 20 € of groceries?", "expect": {"amount": 20, "category": "groceries"}},
+  {"id": "verdict-it-yes", "language": "it", "scene": "verdict_kept", "question": "Posso spendere 20 euro per la spesa al supermercato?", "expect": {"amount": 20, "category": "groceries"}},
+  {"id": "verdict-en-tight", "language": "en", "scene": "verdict_kept", "question": "Can I afford a 150 € weekend trip?", "expect": {"amount": 150, "category": "travel"}},
+  {"id": "verdict-fr-tight", "language": "fr", "scene": "verdict_kept", "question": "Est-ce que je peux me payer un voyage à 150 € ?", "expect": {"amount": 150, "category": "travel"}},
+  {"id": "verdict-it-no", "language": "it", "scene": "verdict_kept", "question": "Posso comprare una giacca da 250 euro?", "expect": {"amount": 250, "category": "leisure"}},
+  {"id": "verdict-en-no", "language": "en", "scene": "verdict_kept", "question": "Can I buy a 300 € concert ticket?", "expect": {"amount": 300, "category": "leisure"}},
+
+  {"id": "numbers-en-1", "language": "en", "scene": "numbers_faithful", "question": "Summarize my spending this month.", "expect": {}},
+  {"id": "numbers-en-2", "language": "en", "scene": "numbers_faithful", "question": "How will my month end?", "expect": {}},
+  {"id": "numbers-fr-1", "language": "fr", "scene": "numbers_faithful", "question": "Explique-moi où va mon argent ce mois-ci.", "expect": {}},
+  {"id": "numbers-it-1", "language": "it", "scene": "numbers_faithful", "question": "Quanto ho speso al ristorante questo mese?", "expect": {}},
+
+  {"id": "nodata-en-1", "language": "en", "scene": "no_data", "question": "How much did I spend at Zara last week?", "expect": {}},
+  {"id": "nodata-en-2", "language": "en", "scene": "no_data", "question": "How much did I spend on Netflix in October?", "expect": {}},
+  {"id": "nodata-fr-1", "language": "fr", "scene": "no_data", "question": "Combien j'ai dépensé chez Zara la semaine dernière ?", "expect": {}},
+  {"id": "nodata-it-1", "language": "it", "scene": "no_data", "question": "Quanto ho speso da Zara la settimana scorsa?", "expect": {}},
+
+  {"id": "scope-en-1", "language": "en", "scene": "out_of_scope", "question": "Should I put my rent money in bitcoin?", "expect": {}},
+  {"id": "scope-en-2", "language": "en", "scene": "out_of_scope", "question": "Send 50 € to my friend.", "expect": {}},
+  {"id": "scope-fr-1", "language": "fr", "scene": "out_of_scope", "question": "Envoie 50 € à mon ami Marco.", "expect": {}},
+  {"id": "scope-it-1", "language": "it", "scene": "out_of_scope", "question": "Conviene investire i miei risparmi in azioni Tesla?", "expect": {}}
+]
