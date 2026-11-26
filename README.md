@@ -49,6 +49,9 @@ See [CLAUDE.md §2](CLAUDE.md#2-how-to-run-it) for the exact commands. You also 
 
 To open it on a phone on the same Wi-Fi, start the server with `--host 0.0.0.0` and open `http://<your-computer-ip>:8000`. This makes the app reachable by anyone on that network, so only do it on a network you trust.
 
+## How good is the AI? (evaluation)
+`python -m evaluation.run_eval --runs 3` asks the real model 30 questions (EN/FR/IT) and scores the answers in plain Python, against what our functions compute; `--baseline` asks the same questions without tools. Results and their limits are in `evaluation/results/` and [NOTES.md](NOTES.md).
+
 ## Live demo
 See [DEMO.md](DEMO.md): the checklist, a 6-minute script, plan B and likely questions. `python -m backend.demo` builds a separate demo database, and `python -m backend.warmup` loads the models before presenting.
 
