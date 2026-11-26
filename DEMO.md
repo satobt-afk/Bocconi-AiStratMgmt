@@ -1,5 +1,7 @@
 # 🎬 Live demo guide
 
+The full 12–15 minute presentation (slides, speaking parts, evaluation results, Q&A) is in [PRESENTATION.md](PRESENTATION.md). This file covers the practical demo setup.
+
 About 6 minutes of demo, plus questions. Everything runs locally on the Mac: no internet is needed during the demo.
 
 > **Value proposition:** For exchange students living on a fixed budget, we offer real-time spending control and personalized saving advice, using receipt scanning, auto-categorization, monthly/annual dashboards and an AI budget coach.
