@@ -53,7 +53,7 @@ To open it on a phone on the same Wi-Fi, start the server with `--host 0.0.0.0` 
 `python -m evaluation.run_eval --runs 3` asks the real model 30 questions (EN/FR/IT) and scores the answers in plain Python, against what our functions compute; `--baseline` asks the same questions without tools. Results and their limits are in `evaluation/results/` and [NOTES.md](NOTES.md).
 
 ## Live demo
-See [DEMO.md](DEMO.md): the checklist, a 6-minute script, plan B and likely questions. `python -m backend.demo` builds a separate demo database, and `python -m backend.warmup` loads the models before presenting.
+The presentation script (12–15 min, slides, demo, likely questions) is in [PRESENTATION.md](PRESENTATION.md). See [DEMO.md](DEMO.md): the checklist, a 6-minute script, plan B and likely questions. `python -m backend.demo` builds a separate demo database, and `python -m backend.warmup` loads the models before presenting.
 
 ## Evaluation approach
 We plan to ask exchange students to use the app for one month, then compare with how they managed the previous months: did they overspend less, and did they feel more in control? This is a first evaluation idea, not proof that the app causes any improvement.
