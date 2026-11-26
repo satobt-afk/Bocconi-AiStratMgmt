@@ -1,6 +1,7 @@
 # 🎤 Presentation script — Personal Financial Agent (12–15 min, live demo included)
 
-Seven parts. Times are targets; the total is about 13 minutes, which leaves room for a slow AI answer.
+Seven parts. Times are targets; the total is about 14 minutes, which leaves room for a slow AI answer.
+**Short version (about 10 min):** cut the demo to 3:30 (skip the Year view and the delete), part 4 to 1:30 (only the agent diagram and the 3 rules), and part 6 to 0:30.
 With two presenters: **A** does parts 1, 2, 4 and 7, **B** does parts 3, 5 and 6. With more presenters, split by part.
 Practical setup (server, warm-up, plan B): see [DEMO.md](DEMO.md).
 
@@ -9,7 +10,7 @@ Practical setup (server, warm-up, plan B): see [DEMO.md](DEMO.md).
 | 1 | The problem | 1:00 | "Exchange students find out too late" |
 | 2 | Value proposition & hypothesis | 1:30 | Value prop + hypothesis |
 | 3 | Live demo | 5:00 | (switch to the app) |
-| 4 | How it works: an agent, not a chatbot | 2:00 | Architecture diagram |
+| 4 | How it works & how we built it | 2:30 | Architecture diagram + "How we built it" |
 | 5 | Does the AI work? We measured it | 2:30 | Evaluation table |
 | 6 | Limits & next steps | 1:00 | Limits / roadmap |
 | 7 | Close | 0:30 | Value prop again |
@@ -50,7 +51,7 @@ Optional: show the QR code of `…/demo` so the professor can try it on their ow
 
 **If the AI is slow:** keep talking (the lines above are written for the waits), or show the 💡 tip, which is computed in Python with no wait. Other problems: see the plan B in [DEMO.md](DEMO.md).
 
-## 4. How it works: an agent, not a chatbot — 2:00 (A)
+## 4. How it works & how we built it — 2:30 (A)
 
 **Slide:** architecture diagram, with three boxes in a row.
 `Student question → Model (Qwen 3B, local) picks a TOOL → Python computes on the student's data → Model phrases the answer + 📌 exact verdict`
@@ -61,6 +62,12 @@ Three design rules, one sentence each:
 1. **The model never computes money.** Every number comes from tested Python functions.
 2. **Guard rails in Python.** Python fixes what the model gets wrong predictably (for example, it maps "week-end" or "aperitivo" to the right category), and shows its own verdict next to the AI's words.
 3. **The human stays in the loop.** A scanned receipt is only a proposal. The model is also replaceable: one file talks to it, so moving from local Qwen to an online model doesn't touch the rest.
+
+**Slide "How we built it" (30 s):**
+- Left side, the architecture in one line: `Phone (HTML/JS, displays only) → secure HTTPS link → FastAPI server on our laptop → Python tools + SQLite (one isolated account per user) → local Qwen via Ollama`
+- Right side, the method: `GitHub skeleton (FastAPI + CLAUDE.md rules) → 1 branch per feature → tests first → pull request → review → merge` · 13 pull requests · about 270 automated tests
+
+> "We started from a GitHub skeleton with a project charter, our CLAUDE.md, which sets rules like 'tests first' and 'the model never computes money'. Then we built every feature on its own branch, with its tests written first, and merged it through a pull request only once it worked. `main` was always a working version, which is why we can demo it live today."
 
 ## 5. Does the AI work? We measured it — 2:30 (B)
 
